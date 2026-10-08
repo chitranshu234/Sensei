@@ -1,4 +1,4 @@
-# AI Codebase Intelligence & Onboarding
+# Sensei-AI Codebase Intelligence & Onboarding
 
 An AI-powered platform that analyzes GitHub repositories, extracts architecture patterns, and provides source-grounded answers through RAG-powered chat.
 
