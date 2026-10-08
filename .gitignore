@@ -1,0 +1,27 @@
+# Root .gitignore
+target/
+*.class
+*.jar
+*.war
+.idea/
+*.iml
+.vscode/
+
+# Node
+node_modules/
+dist/
+.vite/
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.env
+
+# Local storage / Repositories
+storage/
+repos/
+*.db

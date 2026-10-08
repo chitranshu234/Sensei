@@ -1,0 +1,30 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ai-codebase-intelligence
+  datasource:
+    url: jdbc:h2:file:./data/codeintel;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE
+    driverClassName: org.h2.Driver
+    username: sa
+    password: 
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+app:
+  storage:
+    repo-dir: ./storage/repos
+  ai-service:
+    base-url: http://localhost:8000
+
+logging:
+  level:
+    com.codeintel: INFO

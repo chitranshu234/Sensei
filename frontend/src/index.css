@@ -1,0 +1,255 @@
+@import "tailwindcss";
+
+/* ─── Design Tokens (Tailwind v4 CSS-first) ─── */
+@theme {
+  /* Teal / Mint Primary */
+  --color-primary-50: #f0fdfa;
+  --color-primary-100: #ccfbf1;
+  --color-primary-200: #99f6e4;
+  --color-primary-300: #5eead4;
+  --color-primary-400: #2dd4bf;
+  --color-primary-500: #5ebbaa; /* The signature teal */
+  --color-primary-600: #0d9488;
+  --color-primary-700: #0f766e;
+  --color-primary-800: #115e59;
+  --color-primary-900: #134e4a;
+
+  /* Surfaces (Warm Light Mode) */
+  --color-surface-50: #ffffff; /* Pure white */
+  --color-surface-100: #fdfbf7; /* Off-white card */
+  --color-surface-200: #f8f2eb; /* Main dashboard bg */
+  --color-surface-300: #f3e8dd; /* Hover states */
+  --color-surface-400: #e2cbbb; /* Borders */
+  --color-surface-500: #a89f91; /* Muted text */
+  --color-surface-600: #8c8273;
+  --color-surface-700: #595349;
+  --color-surface-800: #3c3731; /* Text body */
+  --color-surface-850: #2c2824; /* Text heading */
+  --color-surface-900: #1f1c19;
+  --color-surface-950: #141210;
+
+  /* Accents based on mockup */
+  --color-accent-cyan: #5ebbaa; /* Teal */
+  --color-accent-emerald: #4ade80;
+  --color-accent-amber: #f69a3b; /* Orange */
+  --color-accent-orange: #eb6356; /* Coral */
+  --color-accent-rose: #f43f5e;
+  --color-accent-violet: #6f66c2; /* Purple */
+  --color-accent-indigo: #6366f1;
+
+  --font-family-sans: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-family-display: "Clash Display", "Fraunces", "Plus Jakarta Sans", sans-serif;
+  --font-family-mono: "JetBrains Mono", monospace;
+
+  --shadow-glow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  --shadow-glow-amber: 0 4px 20px rgba(246, 154, 59, 0.15);
+  --shadow-glow-emerald: 0 4px 20px rgba(94, 187, 170, 0.15);
+  --shadow-glow-lg: 0 10px 30px rgba(0, 0, 0, 0.05);
+}
+
+/* ─── Base Styles ─── */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: var(--font-family-sans);
+    background-color: var(--color-surface-200); /* Warm beige background */
+    color: var(--color-surface-800); /* Dark text */
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    selection-background-color: rgba(94, 187, 170, 0.2);
+  }
+
+  /* Custom refined scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(168, 159, 145, 0.2);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(94, 187, 170, 0.5);
+  }
+}
+
+/* ─── Component Utilities ─── */
+@layer components {
+  .font-display {
+    font-family: var(--font-family-display);
+    font-weight: 700;
+  }
+
+  .font-mono {
+    font-family: var(--font-family-mono);
+  }
+
+  /* Light Theme Cards (replacing glassmorphism) */
+  .glass-card {
+    background: #ffffff;
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .glass-card:hover {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+  }
+
+  .glass-card-interactive {
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .glass-card-interactive:hover {
+    transform: translateY(-2px);
+  }
+
+  /* Elevated Card (for popups/modals/panels) */
+  .glass-panel-elevated {
+    background: #ffffff;
+    border: 1px solid var(--color-surface-300);
+    border-radius: 20px;
+    box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Gradient Text - modified for light mode */
+  .gradient-text {
+    background: linear-gradient(135deg, var(--color-surface-850) 0%, var(--color-surface-600) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gradient-text-accent {
+    background: linear-gradient(135deg, var(--color-accent-cyan) 0%, #34d399 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gradient-text-warm {
+    background: linear-gradient(135deg, var(--color-accent-amber) 0%, var(--color-accent-orange) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Tactile Pill Buttons */
+  .pill-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    background-color: var(--color-surface-100);
+    color: var(--color-surface-800);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .pill-button:hover {
+    background-color: #ffffff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  /* React Flow Styles - Light Mode */
+  .react-flow__node {
+    font-family: var(--font-family-sans) !important;
+  }
+
+  .react-flow__background {
+    background: var(--color-surface-200) !important;
+  }
+
+  .react-flow__minimap {
+    background: #ffffff !important;
+    border-radius: 14px !important;
+    border: 1px solid var(--color-surface-300) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06) !important;
+    overflow: hidden;
+  }
+
+  .react-flow__minimap-mask {
+    fill: rgba(94, 187, 170, 0.1) !important;
+    stroke: var(--color-accent-cyan) !important;
+    stroke-width: 1.5 !important;
+  }
+
+  .react-flow__controls {
+    border-radius: 12px !important;
+    border: 1px solid var(--color-surface-300) !important;
+    background: #ffffff !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06) !important;
+    overflow: hidden;
+    padding: 2px !important;
+  }
+
+  .react-flow__controls-button {
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid var(--color-surface-200) !important;
+    fill: var(--color-surface-800) !important;
+    transition: all 0.15s ease !important;
+  }
+
+  .react-flow__controls-button:last-child {
+    border-bottom: none !important;
+  }
+
+  .react-flow__controls-button:hover {
+    background: var(--color-surface-100) !important;
+    fill: var(--color-surface-800) !important;
+  }
+
+  .react-flow__handle {
+    width: 8px !important;
+    height: 8px !important;
+    border-radius: 9999px !important;
+    border: 2px solid #ffffff !important;
+    transition: transform 0.2s ease, background-color 0.2s ease !important;
+  }
+
+  .react-flow__handle:hover {
+    transform: scale(1.4) !important;
+  }
+}
+
+/* ─── Animations ─── */
+@layer utilities {
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.45; transform: scale(1.2); }
+  }
+
+  @keyframes float-subtle {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+
+  @keyframes edge-flow {
+    0% { stroke-dashoffset: 24; }
+    100% { stroke-dashoffset: 0; }
+  }
+
+  .animate-pulse-dot {
+    animation: pulse-dot 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .animate-float {
+    animation: float-subtle 4s ease-in-out infinite;
+  }
+
+  .animate-edge-flow {
+    stroke-dasharray: 6 6;
+    animation: edge-flow 1.2s linear infinite;
+  }
+}
