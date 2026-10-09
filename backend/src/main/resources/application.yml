@@ -44,7 +44,7 @@ app:
     repo-dir: ./storage/repos
 
   ai-service:
-    base-url: http://localhost:8000
+    base-url: ${AI_SERVICE_URL:http://localhost:8000}
 
   security:
     # MUST be overridden in any real deployment (env var APP_SECURITY_JWT_SECRET).
@@ -55,7 +55,7 @@ app:
       issuer: sensei
     # Exposes an unauthenticated raw SQL console. Leave false outside local development.
     h2-console-enabled: true
-    allowed-origins: http://localhost:5173,http://127.0.0.1:5173
+    allowed-origins: ${APP_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
 
 logging:
   level:
