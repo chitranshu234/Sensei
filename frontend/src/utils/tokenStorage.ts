@@ -12,8 +12,8 @@ import type { AuthSession } from '../types/auth';
  * stateless API, and it never renders untrusted HTML (React escapes by default).
  */
 
-const TOKEN_KEY = 'codeintel.token';
-const USER_KEY = 'codeintel.user';
+const TOKEN_KEY = 'sensei.token';
+const USER_KEY = 'sensei.user';
 
 export interface StoredUser {
   userId: number;

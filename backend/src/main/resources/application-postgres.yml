@@ -1,7 +1,7 @@
 # Activate with: --spring.profiles.active=postgres
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:codeintel}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:sensei}
     driverClassName: org.postgresql.Driver
     username: ${DB_USER:postgres}
     password: ${DB_PASSWORD:postgres}

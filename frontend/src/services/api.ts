@@ -19,7 +19,7 @@ export class ApiError extends Error {
  * Fired when the server rejects our token. The app subscribes to this and signs the user out,
  * which keeps every component from having to handle "session expired" individually.
  */
-export const AUTH_EXPIRED_EVENT = 'codeintel:auth-expired';
+export const AUTH_EXPIRED_EVENT = 'sensei:auth-expired';
 
 function authHeaders(): Record<string, string> {
   const token = readToken();

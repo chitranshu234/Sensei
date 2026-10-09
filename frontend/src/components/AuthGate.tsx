@@ -16,7 +16,7 @@ export const AuthGate = ({ children }: { children: ReactNode }) => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     if (token) {
-      localStorage.setItem('codeintel.token', token);
+      localStorage.setItem('sensei.token', token);
       window.history.replaceState({}, document.title, '/');
     }
 

@@ -133,10 +133,10 @@ REPOSITORY, ENTITY, COMPONENT, CONFIGURATION, FUNCTION, METHOD.
 
 ## 6. Every file and what it does
 
-### Backend — `backend/src/main/java/com/codeintel/`
+### Backend — `backend/src/main/java/com/sensei/`
 
 **Entry point & config**
-- `CodeIntelApplication.java` — the `main()`; starts Spring Boot. `@EnableAsync` turns on background
+- `SenseiApplication.java` — the `main()`; starts Spring Boot. `@EnableAsync` turns on background
   threads.
 - `config/AsyncConfig.java` — defines the `ingestionExecutor` thread pool (bounded, with a
   `CallerRunsPolicy` back-pressure strategy) so repo ingestion never runs on the web request thread.

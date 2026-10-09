@@ -9,7 +9,7 @@
         <version>3.3.5</version>
         <relativePath/>
     </parent>
-    <groupId>com.codeintel</groupId>
+    <groupId>com.sensei</groupId>
     <artifactId>backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>backend</name>

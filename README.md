@@ -232,7 +232,7 @@ Project_1/
 │       ├── types/          # TypeScript types
 │       └── utils/          # tokenStorage
 ├── backend/             # Spring Boot 3.3.5 (Java 21)
-│   └── src/main/java/com/codeintel/
+│   └── src/main/java/com/sensei/
 │       ├── security/       # JWT filter, SecurityConfig, UserDetailsService
 │       ├── controller/     # REST + SSE endpoints
 │       ├── service/        # Repo lifecycle, ingestion, Git clone, AI client

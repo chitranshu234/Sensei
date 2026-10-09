@@ -8,7 +8,7 @@ spring:
     name: ai-codebase-intelligence
 
   datasource:
-    url: jdbc:h2:file:./data/codeintel;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE
+    url: jdbc:h2:file:./data/sensei;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE
     driverClassName: org.h2.Driver
     username: sa
     password: ""
@@ -52,14 +52,14 @@ app:
     jwt:
       secret: ${APP_JWT_SECRET:change-me-in-production-this-key-is-32-bytes-minimum}
       expiration-minutes: 120
-      issuer: codeintel
+      issuer: sensei
     # Exposes an unauthenticated raw SQL console. Leave false outside local development.
     h2-console-enabled: true
     allowed-origins: http://localhost:5173,http://127.0.0.1:5173
 
 logging:
   level:
-    com.codeintel: INFO
+    com.sensei: INFO
     org.springframework.security: INFO
 
 management:
