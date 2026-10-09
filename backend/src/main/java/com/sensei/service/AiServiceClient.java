@@ -61,6 +61,24 @@ public class AiServiceClient {
         }
     }
 
+
+
+    /**
+     * Delete repository code chunks from the AI service.
+     */
+    public void deleteRepo(Long repoId) {
+        try {
+            aiServiceWebClient.delete()
+                    .uri("/api/ai/index/" + repoId)
+                    .retrieve()
+                    .bodyToMono(Void.class)
+                    .block();
+            log.info("Deleted vector store for repo {}", repoId);
+        } catch (Exception e) {
+            log.warn("AI service not available for deletion: {}", e.getMessage());
+        }
+    }
+
     /**
      * Send a chat question to the AI service and get a streaming response.
      */

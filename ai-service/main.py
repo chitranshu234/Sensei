@@ -95,6 +95,14 @@ async def index_chunks(request: IndexRequest):
     }
 
 
+@app.delete("/api/ai/index/{repo_id}")
+async def delete_repo(repo_id: int):
+    """Delete a repository's vector store collection."""
+    logger.info("Deleting vector store for repo %d", repo_id)
+    vector_store_service.delete_repo(repo_id)
+    return {"status": "ok", "repoId": repo_id}
+
+
 # ─── Chat Endpoint (SSE Streaming) ───────────────────────────
 
 @app.post("/api/ai/chat")

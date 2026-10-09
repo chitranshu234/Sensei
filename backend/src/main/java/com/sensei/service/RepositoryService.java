@@ -35,17 +35,20 @@ public class RepositoryService {
     private final IngestionPersistence persistence;
     private final GitCloneService gitCloneService;
     private final UserRepo userRepo;
+    private final AiServiceClient aiServiceClient;
 
     public RepositoryService(RepositoryRepo repositoryRepo,
                              IngestionService ingestionService,
                              IngestionPersistence persistence,
                              GitCloneService gitCloneService,
-                             UserRepo userRepo) {
+                             UserRepo userRepo,
+                             AiServiceClient aiServiceClient) {
         this.repositoryRepo = repositoryRepo;
         this.ingestionService = ingestionService;
         this.persistence = persistence;
         this.gitCloneService = gitCloneService;
         this.userRepo = userRepo;
+        this.aiServiceClient = aiServiceClient;
     }
 
     private UserEntity getCurrentUser() {
@@ -137,6 +140,7 @@ public class RepositoryService {
 
         persistence.clearExisting(id);
         repositoryRepo.delete(repo);
+        aiServiceClient.deleteRepo(id);
         log.info("Deleted repository {} and all derived data", id);
     }
 
