@@ -5,7 +5,7 @@ import type {
   RegisterPayload,
 } from '../types/auth';
 
-const BASE_URL = '/api';
+const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 /** Structured error carrying the HTTP status, so callers can branch on 401 vs 404 vs 500. */
 export class ApiError extends Error {
