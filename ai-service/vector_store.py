@@ -6,7 +6,7 @@ from typing import Optional
 
 import chromadb
 from chromadb.config import Settings as ChromaSettings
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import Chroma
 
 from config import settings
@@ -18,18 +18,17 @@ class VectorStoreService:
     """Manages per-repository ChromaDB collections for code chunk embeddings."""
 
     def __init__(self):
-        self._embeddings: Optional[HuggingFaceEmbeddings] = None
+        self._embeddings: Optional[GoogleGenerativeAIEmbeddings] = None
         self._chroma_client: Optional[chromadb.ClientAPI] = None
         self._stores: dict[int, Chroma] = {}
 
     @property
-    def embeddings(self) -> HuggingFaceEmbeddings:
+    def embeddings(self) -> GoogleGenerativeAIEmbeddings:
         if self._embeddings is None:
-            logger.info("Loading embedding model: %s", settings.embedding_model)
-            self._embeddings = HuggingFaceEmbeddings(
-                model_name=settings.embedding_model,
-                model_kwargs={"device": "cpu"},
-                encode_kwargs={"normalize_embeddings": True},
+            logger.info("Loading Google Generative AI embeddings to save RAM")
+            self._embeddings = GoogleGenerativeAIEmbeddings(
+                model="models/embedding-001",
+                google_api_key=settings.google_api_key
             )
         return self._embeddings
 
