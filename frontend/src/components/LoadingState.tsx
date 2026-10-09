@@ -12,36 +12,11 @@ const steps: {
   desc: string;
   icon: React.FC<{ className?: string; size?: number }>;
 }[] = [
-  {
-    key: 'QUEUED',
-    label: 'Queued in Engine',
-    desc: 'Waiting for worker process allocation',
-    icon: Icons.Clock,
-  },
-  {
-    key: 'CLONING',
-    label: 'Cloning Repository',
-    desc: 'Fetching Git tree from GitHub',
-    icon: Icons.Download,
-  },
-  {
-    key: 'PARSING',
-    label: 'Parsing Code AST',
-    desc: 'Extracting classes, components, functions, and relationships',
-    icon: Icons.Microscope,
-  },
-  {
-    key: 'INDEXING',
-    label: 'Vector Embedding & Indexing',
-    desc: 'Generating sentence-transformer embeddings in ChromaDB',
-    icon: Icons.Brain,
-  },
-  {
-    key: 'READY',
-    label: 'Workspace Ready',
-    desc: 'Architecture graph and semantic search are live',
-    icon: Icons.Check,
-  },
+  { key: 'QUEUED', label: 'Queued in engine', desc: 'Waiting for a worker in the ingestion pool', icon: Icons.Clock },
+  { key: 'CLONING', label: 'Cloning repository', desc: 'Fetching the Git tree from GitHub', icon: Icons.Download },
+  { key: 'PARSING', label: 'Parsing code AST', desc: 'Extracting classes, members, and relationships', icon: Icons.Microscope },
+  { key: 'INDEXING', label: 'Vector embedding & indexing', desc: 'Embedding chunks into the vector store', icon: Icons.Brain },
+  { key: 'READY', label: 'Workspace ready', desc: 'Architecture graph and semantic search are live', icon: Icons.Check },
 ];
 
 const statusOrder: Record<RepoStatus, number> = {
@@ -56,16 +31,16 @@ const statusOrder: Record<RepoStatus, number> = {
 export const LoadingState = ({ status, errorMessage }: Props) => {
   if (status === 'FAILED') {
     return (
-      <div className="glass-card p-6 border-accent-rose/30 bg-accent-rose/5 rounded-2xl">
+      <div className="sheet p-6 border-rose-500/40 bg-rose-100/50">
         <div className="flex items-start gap-3.5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-rose/15 text-accent-rose flex-shrink-0">
+          <div className="flex h-10 w-10 items-center justify-center rounded-sm bg-rose-100 text-rose-500 border border-rose-500/30 flex-shrink-0">
             <Icons.AlertCircle size={22} />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-accent-rose">Repository Analysis Failed</h3>
-            <p className="text-xs text-surface-600 mt-1 leading-relaxed">
+            <h3 className="font-display text-base text-rose-500">Repository analysis failed</h3>
+            <p className="text-sm text-ink-600 mt-1 leading-relaxed">
               {errorMessage ||
-                'The analysis pipeline encountered an error. Please verify the repository URL and check that your backend services are active.'}
+                'The pipeline hit an error. Verify the repository URL and that the backend and AI services are running.'}
             </p>
           </div>
         </div>
@@ -77,20 +52,20 @@ export const LoadingState = ({ status, errorMessage }: Props) => {
   const progressPercent = Math.min(100, Math.round(((currentStep + 0.5) / steps.length) * 100));
 
   return (
-    <div className="glass-card p-6 sm:p-7 rounded-2xl">
+    <div className="sheet p-6 sm:p-7">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-base font-bold font-display text-surface-900">Pipeline Processing</h3>
-          <p className="text-xs text-surface-600">
-            Automated AST analysis and vectorization in progress
+          <h3 className="font-display text-lg text-ink-900">Pipeline processing</h3>
+          <p className="annotation normal-case tracking-normal mt-0.5">
+            AST analysis and vectorization in progress
           </p>
         </div>
-        <span className="text-xs font-mono font-bold text-primary-600 px-2.5 py-1 rounded-lg bg-primary-500/10 border border-primary-500/20">
+        <span className="font-mono text-sm font-semibold text-vermilion-700 px-2.5 py-1 rounded-sm bg-vermilion-100 border border-vermilion-200">
           {progressPercent}%
         </span>
       </div>
 
-      <div className="space-y-3.5">
+      <div className="space-y-2.5">
         {steps.map((step) => {
           const stepIdx = statusOrder[step.key];
           const isComplete = stepIdx < currentStep;
@@ -100,63 +75,51 @@ export const LoadingState = ({ status, errorMessage }: Props) => {
           return (
             <div
               key={step.key}
-              className={`flex items-center gap-3.5 p-3 rounded-xl border transition-all ${
+              className={`flex items-center gap-3.5 p-3 rounded-sm border transition-colors ${
                 isCurrent
-                  ? 'bg-primary-500/10 border-primary-500/30 shadow-sm'
+                  ? 'bg-vermilion-100/60 border-vermilion-200'
                   : isComplete
-                  ? 'bg-surface-100 border-surface-300'
-                  : 'bg-white border-transparent opacity-40'
+                  ? 'bg-paper-100 border-paper-400'
+                  : 'bg-paper-50 border-transparent opacity-45'
               }`}
             >
-              {/* Step indicator */}
               <div
-                className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all flex-shrink-0 ${
+                className={`flex h-9 w-9 items-center justify-center rounded-sm flex-shrink-0 border ${
                   isComplete
-                    ? 'bg-accent-emerald/15 text-accent-emerald border border-accent-emerald/30'
+                    ? 'bg-green-100 text-green-600 border-green-600/30'
                     : isCurrent
-                    ? 'bg-primary-500/20 text-primary-600 border border-primary-500/40 animate-pulse-dot'
-                    : 'bg-surface-100 border border-surface-300 text-surface-500'
+                    ? 'bg-vermilion-100 text-vermilion-600 border-vermilion-200 pulse-mark'
+                    : 'bg-paper-100 text-ink-400 border-paper-400'
                 }`}
               >
                 {isComplete ? <Icons.Check size={16} /> : <IconComp size={16} />}
               </div>
 
-              {/* Label & Description */}
               <div className="flex-1 min-w-0">
                 <p
-                  className={`text-xs font-bold truncate ${
-                    isComplete
-                      ? 'text-accent-emerald'
-                      : isCurrent
-                      ? 'text-surface-900'
-                      : 'text-surface-500'
+                  className={`text-sm font-semibold truncate ${
+                    isComplete ? 'text-green-600' : isCurrent ? 'text-ink-900' : 'text-ink-400'
                   }`}
                 >
                   {step.label}
                 </p>
-                <p className="text-[11px] text-surface-600 truncate">{step.desc}</p>
+                <p className="text-xs text-ink-500 truncate">{step.desc}</p>
               </div>
 
-              {/* Status Badge */}
               {isCurrent && (
-                <span className="rounded-full bg-primary-500/20 text-primary-600 border border-primary-500/30 px-2.5 py-0.5 text-[10px] font-bold flex-shrink-0">
-                  Running
-                </span>
+                <span className="annotation text-vermilion-600 flex-shrink-0">Running</span>
               )}
               {isComplete && (
-                <span className="rounded-full bg-accent-emerald/15 text-accent-emerald border border-accent-emerald/30 px-2.5 py-0.5 text-[10px] font-bold flex-shrink-0">
-                  Done
-                </span>
+                <span className="annotation text-green-600 flex-shrink-0">Done</span>
               )}
             </div>
           );
         })}
       </div>
 
-      {/* Progress bar */}
-      <div className="mt-6 h-2 rounded-full bg-surface-200 overflow-hidden border border-surface-300">
+      <div className="mt-6 h-1.5 rounded-full bg-paper-200 overflow-hidden border border-paper-400">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-primary-600 via-primary-500 to-accent-cyan transition-all duration-700 ease-out shadow-sm"
+          className="h-full bg-vermilion-500 transition-all duration-700 ease-out"
           style={{ width: `${progressPercent}%` }}
         />
       </div>

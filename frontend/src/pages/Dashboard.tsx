@@ -5,46 +5,13 @@ import { RepoInput } from '../components/RepoInput';
 import { Icons } from '../components/Icons';
 import { Repository, RepoStatus } from '../types/repository';
 
-const statusConfig: Record<
-  RepoStatus,
-  { bg: string; text: string; dot: string; label: string }
-> = {
-  QUEUED: {
-    bg: 'bg-surface-100 border-surface-300',
-    text: 'text-surface-600',
-    dot: 'bg-surface-400',
-    label: 'Queued',
-  },
-  CLONING: {
-    bg: 'bg-accent-amber/10 border-accent-amber/20',
-    text: 'text-accent-amber',
-    dot: 'bg-accent-amber',
-    label: 'Cloning Repository',
-  },
-  PARSING: {
-    bg: 'bg-accent-cyan/10 border-accent-cyan/20',
-    text: 'text-accent-cyan',
-    dot: 'bg-accent-cyan',
-    label: 'Parsing AST',
-  },
-  INDEXING: {
-    bg: 'bg-accent-violet/10 border-accent-violet/20',
-    text: 'text-accent-violet',
-    dot: 'bg-accent-violet',
-    label: 'Indexing Vectors',
-  },
-  READY: {
-    bg: 'bg-accent-emerald/10 border-accent-emerald/20',
-    text: 'text-accent-emerald',
-    dot: 'bg-accent-emerald',
-    label: 'Ready',
-  },
-  FAILED: {
-    bg: 'bg-accent-rose/10 border-accent-rose/20',
-    text: 'text-accent-rose',
-    dot: 'bg-accent-rose',
-    label: 'Failed',
-  },
+const statusConfig: Record<RepoStatus, { bg: string; text: string; dot: string; label: string }> = {
+  QUEUED: { bg: 'bg-paper-100 border-paper-400', text: 'text-ink-500', dot: 'bg-ink-300', label: 'Queued' },
+  CLONING: { bg: 'bg-ochre-100 border-ochre-500/30', text: 'text-ochre-500', dot: 'bg-ochre-500', label: 'Cloning' },
+  PARSING: { bg: 'bg-teal-100 border-teal-500/30', text: 'text-teal-600', dot: 'bg-teal-500', label: 'Parsing AST' },
+  INDEXING: { bg: 'bg-violet-100 border-violet-500/30', text: 'text-violet-600', dot: 'bg-violet-500', label: 'Indexing' },
+  READY: { bg: 'bg-green-100 border-green-600/30', text: 'text-green-600', dot: 'bg-green-600', label: 'Ready' },
+  FAILED: { bg: 'bg-rose-100 border-rose-500/30', text: 'text-rose-500', dot: 'bg-rose-500', label: 'Failed' },
 };
 
 export const Dashboard = () => {
@@ -59,7 +26,6 @@ export const Dashboard = () => {
     clearError,
   } = useAppStore();
 
-  const [repoSearch, setRepoSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'READY' | 'ACTIVE'>('ALL');
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
@@ -67,29 +33,22 @@ export const Dashboard = () => {
     fetchRepositories();
   }, [fetchRepositories]);
 
-  // Poll for status updates if any repo is not READY or FAILED
+  // Poll while any repository is still processing.
   useEffect(() => {
     const hasActive = repositories.some((r) => !['READY', 'FAILED'].includes(r.status));
     if (!hasActive) return;
-
-    const interval = setInterval(() => {
-      fetchRepositories();
-    }, 2500);
+    const interval = setInterval(() => fetchRepositories(), 2500);
     return () => clearInterval(interval);
   }, [repositories, fetchRepositories]);
 
   const handleSubmit = async (url: string, branch?: string) => {
-    try {
-      const repo = await submitRepository(url, branch);
-      navigate(`/repo/${(repo as Repository).id}`);
-    } catch {
-      // error handled in store
-    }
+    const repo = await submitRepository(url, branch);
+    if (repo) navigate(`/repo/${repo.id}`);
   };
 
   const handleDelete = async (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
-    if (window.confirm('Are you sure you want to remove this repository from your workspace?')) {
+    if (window.confirm('Remove this repository from your workspace?')) {
       setDeletingId(id);
       try {
         await deleteRepository(id);
@@ -99,198 +58,120 @@ export const Dashboard = () => {
     }
   };
 
-  // Filtered repositories
   const filteredRepos = useMemo(() => {
     return repositories.filter((r) => {
-      const matchesSearch =
-        !repoSearch ||
-        r.name.toLowerCase().includes(repoSearch.toLowerCase()) ||
-        r.githubUrl.toLowerCase().includes(repoSearch.toLowerCase());
-
-      const matchesStatus =
-        statusFilter === 'ALL'
-          ? true
-          : statusFilter === 'READY'
-          ? r.status === 'READY'
-          : !['READY', 'FAILED'].includes(r.status);
-
-      return matchesSearch && matchesStatus;
+      if (statusFilter === 'ALL') return true;
+      if (statusFilter === 'READY') return r.status === 'READY';
+      return !['READY', 'FAILED'].includes(r.status);
     });
-  }, [repositories, repoSearch, statusFilter]);
+  }, [repositories, statusFilter]);
 
-  // Aggregate metrics computed from real project data
   const metrics = useMemo(() => {
     const totalRepos = repositories.length;
     const readyRepos = repositories.filter((r) => r.status === 'READY').length;
     const totalFiles = repositories.reduce((acc, r) => acc + (r.totalFiles || 0), 0);
     const totalClasses = repositories.reduce((acc, r) => acc + (r.totalClasses || 0), 0);
-    const totalRelationships = repositories.reduce(
-      (acc, r) => acc + (r.totalRelationships || 0),
-      0
-    );
-
+    const totalRelationships = repositories.reduce((acc, r) => acc + (r.totalRelationships || 0), 0);
     return { totalRepos, readyRepos, totalFiles, totalClasses, totalRelationships };
   }, [repositories]);
 
+  const statChips = [
+    { label: 'Repositories', value: `${metrics.readyRepos}/${metrics.totalRepos}`, show: metrics.totalRepos > 0 },
+    { label: 'Files parsed', value: metrics.totalFiles, show: metrics.totalFiles > 0 },
+    { label: 'AST classes', value: metrics.totalClasses, show: metrics.totalClasses > 0 },
+    { label: 'Relations', value: metrics.totalRelationships, show: metrics.totalRelationships > 0 },
+  ].filter((c) => c.show);
+
   return (
-    <div className="min-h-screen pt-24 pb-16">
-      <div className="mx-auto max-w-7xl px-6 sm:px-8">
-        {/* ─── Hero Section ─── */}
-        <div className="mb-12">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-white/10">
-            <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-500/10 border border-primary-500/20 text-xs font-semibold text-primary-300 mb-3">
-                <span className="h-1.5 w-1.5 rounded-full bg-accent-cyan animate-pulse-dot" />
-                AST Intelligence & Layer Architecture Engine
-              </div>
-              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-display text-surface-900">
-                Codebase <span className="gradient-text-accent">Intelligence</span>
+    <div className="relative z-10 pb-16">
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12">
+        {/* ── Hero ── */}
+        <div className="mb-10 rise">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-paper-400">
+            <div className="max-w-2xl">
+              <p className="annotation mb-3">AST intelligence · layer architecture engine</p>
+              <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl text-ink-900 leading-[1.05]">
+                Codebase <span className="text-vermilion-600">intelligence</span>
               </h1>
-              <p className="mt-2 text-sm sm:text-base text-surface-600 max-w-2xl leading-relaxed">
-                Connect your repository to parse class hierarchies, visualize Spring layers, and query code logic with verifiable citations.
+              <p className="mt-3 text-sm sm:text-base text-ink-500 leading-relaxed">
+                Connect a repository to parse class hierarchies, visualize Spring layers, and query
+                code logic with verifiable citations.
               </p>
             </div>
 
-            {/* Quick Aggregate Stats Chips */}
-            {metrics.totalRepos > 0 && (
+            {statChips.length > 0 && (
               <div className="flex flex-wrap items-center gap-2">
-                <div className="px-3.5 py-2 rounded-2xl bg-surface-100 border border-surface-300 shadow-sm">
-                  <p className="text-[10px] uppercase font-bold text-surface-500 tracking-wider">
-                    Repositories
-                  </p>
-                  <p className="text-base font-extrabold font-mono text-surface-900">
-                    {metrics.readyRepos}
-                    <span className="text-xs text-surface-500 font-normal">
-                      /{metrics.totalRepos}
-                    </span>
-                  </p>
-                </div>
-                {metrics.totalFiles > 0 && (
-                  <div className="px-3.5 py-2 rounded-2xl bg-surface-100 border border-surface-300 shadow-sm">
-                    <p className="text-[10px] uppercase font-bold text-surface-500 tracking-wider">
-                      Files Parsed
-                    </p>
-                    <p className="text-base font-extrabold font-mono text-accent-cyan">
-                      {metrics.totalFiles}
-                    </p>
+                {statChips.map((c) => (
+                  <div key={c.label} className="sheet px-3.5 py-2">
+                    <p className="annotation">{c.label}</p>
+                    <p className="font-mono text-base font-semibold text-ink-900 mt-0.5">{c.value}</p>
                   </div>
-                )}
-                {metrics.totalClasses > 0 && (
-                  <div className="px-3.5 py-2 rounded-2xl bg-surface-100 border border-surface-300 shadow-sm">
-                    <p className="text-[10px] uppercase font-bold text-surface-500 tracking-wider">
-                      AST Classes
-                    </p>
-                    <p className="text-base font-extrabold font-mono text-accent-violet">
-                      {metrics.totalClasses}
-                    </p>
-                  </div>
-                )}
-                {metrics.totalRelationships > 0 && (
-                  <div className="px-3.5 py-2 rounded-2xl bg-surface-100 border border-surface-300 shadow-sm">
-                    <p className="text-[10px] uppercase font-bold text-surface-500 tracking-wider">
-                      Relations
-                    </p>
-                    <p className="text-base font-extrabold font-mono text-accent-amber">
-                      {metrics.totalRelationships}
-                    </p>
-                  </div>
-                )}
+                ))}
               </div>
             )}
           </div>
         </div>
 
-        {/* ─── Error banner ─── */}
+        {/* ── Error banner ── */}
         {error && (
-          <div className="mb-8 rounded-2xl border border-accent-rose/30 bg-accent-rose/10 p-4 flex items-center gap-3 backdrop-blur-md">
-            <Icons.AlertTriangle className="text-accent-rose flex-shrink-0" size={20} />
-            <p className="text-sm text-accent-rose flex-1 font-medium">{error}</p>
-            <button
-              onClick={clearError}
-              className="text-accent-rose hover:text-surface-900 transition-colors p-1.5 rounded-lg hover:bg-black/5"
-            >
+          <div className="mb-8 sheet border-rose-500/40 bg-rose-100/50 p-4 flex items-center gap-3">
+            <Icons.AlertTriangle className="text-rose-500 flex-shrink-0" size={18} />
+            <p className="text-sm text-rose-500 flex-1">{error}</p>
+            <button onClick={clearError} className="text-rose-500 hover:text-ink-900 p-1 rounded-sm hover:bg-paper-200">
               <Icons.X size={16} />
             </button>
           </div>
         )}
 
-        {/* ─── Main Grid: Input + Repositories ─── */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left: Input Card (5 cols) */}
+        {/* ── Main grid ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
           <div className="lg:col-span-5">
             <RepoInput onSubmit={handleSubmit} loading={loading} />
           </div>
 
-          {/* Right: Repository List (7 cols) */}
           <div className="lg:col-span-7">
-            <div className="glass-card p-6 sm:p-7">
-              {/* Header with Search and Filter */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-white/5">
+            <div className="sheet p-5 sm:p-7">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-paper-400">
                 <div>
-                  <h2 className="text-lg font-bold font-display text-surface-900">Your Workspaces</h2>
-                  <p className="text-xs text-surface-600">
-                    {repositories.length === 1
-                      ? '1 repository indexed'
-                      : `${repositories.length} repositories indexed`}
+                  <h2 className="font-display text-lg text-ink-900">Your workspaces</h2>
+                  <p className="annotation normal-case tracking-normal mt-0.5">
+                    {repositories.length === 1 ? '1 repository indexed' : `${repositories.length} repositories indexed`}
                   </p>
                 </div>
 
                 {repositories.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    {/* Status Tabs */}
-                    <div className="flex p-0.5 rounded-xl bg-surface-100 border border-surface-300 text-xs">
+                  <div className="flex rounded-sm border border-paper-400 bg-paper-100 p-0.5 text-xs self-start">
+                    {(['ALL', 'READY', 'ACTIVE'] as const).map((key) => (
                       <button
-                        onClick={() => setStatusFilter('ALL')}
-                        className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
-                          statusFilter === 'ALL'
-                            ? 'bg-white text-surface-900 font-semibold shadow-sm'
-                            : 'text-surface-500 hover:text-surface-800'
+                        key={key}
+                        onClick={() => setStatusFilter(key)}
+                        className={`px-3 py-1 rounded-sm font-semibold transition-colors ${
+                          statusFilter === key
+                            ? 'bg-paper-50 text-ink-900 border border-paper-400'
+                            : 'text-ink-400 hover:text-ink-700'
                         }`}
                       >
-                        All
+                        {key === 'ALL' ? 'All' : key === 'READY' ? 'Ready' : 'Active'}
                       </button>
-                      <button
-                        onClick={() => setStatusFilter('READY')}
-                        className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
-                          statusFilter === 'READY'
-                            ? 'bg-accent-emerald/10 text-accent-emerald font-semibold shadow-sm'
-                            : 'text-surface-500 hover:text-surface-800'
-                        }`}
-                      >
-                        Ready
-                      </button>
-                      <button
-                        onClick={() => setStatusFilter('ACTIVE')}
-                        className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
-                          statusFilter === 'ACTIVE'
-                            ? 'bg-accent-violet/10 text-accent-violet font-semibold shadow-sm'
-                            : 'text-surface-500 hover:text-surface-800'
-                        }`}
-                      >
-                        Active
-                      </button>
-                    </div>
+                    ))}
                   </div>
                 )}
               </div>
 
-              {/* Repositories Stream */}
               {repositories.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-surface-100 border border-surface-300 mb-4 shadow-sm">
-                    <Icons.GitHub className="text-surface-500" size={30} />
+                  <div className="flex h-14 w-14 items-center justify-center rounded-sm bg-paper-100 border border-paper-400 mb-4 text-ink-400">
+                    <Icons.GitHub size={28} />
                   </div>
-                  <h3 className="text-sm font-bold text-surface-900">No repositories analyzed yet</h3>
-                  <p className="text-xs text-surface-600 mt-1 max-w-xs">
-                    Provide a GitHub repository link on the left to start extracting architecture and code patterns.
+                  <h3 className="font-display text-base text-ink-900">No repositories yet</h3>
+                  <p className="text-sm text-ink-500 mt-1 max-w-xs">
+                    Paste a GitHub URL on the left to start extracting architecture and code patterns.
                   </p>
                 </div>
               ) : filteredRepos.length === 0 ? (
-                <div className="py-12 text-center text-xs text-surface-500">
-                  No repositories match your active filter.
-                </div>
+                <div className="py-12 text-center text-sm text-ink-400">No repositories match this filter.</div>
               ) : (
-                <div className="space-y-3.5">
+                <div className="space-y-3">
                   {filteredRepos.map((repo) => {
                     const st = statusConfig[repo.status] || statusConfig.QUEUED;
                     const isProcessing = !['READY', 'FAILED'].includes(repo.status);
@@ -299,88 +180,74 @@ export const Dashboard = () => {
                       <div
                         key={repo.id}
                         onClick={() => navigate(`/repo/${repo.id}`)}
-                        className="group w-full relative rounded-2xl border border-surface-300 bg-white hover:bg-surface-100 hover:border-primary-500/50 p-5 text-left transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md"
+                        className="sheet sheet-interactive group p-4 sm:p-5"
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="min-w-0 flex-1">
-                            {/* Repo Name & Status */}
-                            <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
-                              <h3 className="text-base font-bold text-surface-900 group-hover:text-primary-600 transition-colors truncate">
+                            <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                              <h3 className="text-base font-semibold text-ink-900 group-hover:text-vermilion-700 transition-colors truncate">
                                 {repo.name}
                               </h3>
-
-                              <span
-                                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border ${st.bg} ${st.text}`}
-                              >
-                                <span
-                                  className={`h-1.5 w-1.5 rounded-full ${st.dot} ${
-                                    isProcessing ? 'animate-pulse-dot' : ''
-                                  }`}
-                                />
+                              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border ${st.bg} ${st.text}`}>
+                                <span className={`h-1.5 w-1.5 rounded-full ${st.dot} ${isProcessing ? 'pulse-mark' : ''}`} />
                                 {st.label}
                               </span>
-
                               {repo.defaultBranch && (
-                                <span className="inline-flex items-center gap-1 text-[11px] text-surface-600 font-mono px-2 py-0.5 rounded-md bg-surface-100">
+                                <span className="inline-flex items-center gap-1 text-[11px] text-ink-500 font-mono px-2 py-0.5 rounded-sm bg-paper-100">
                                   <Icons.GitBranch size={11} />
                                   {repo.defaultBranch}
                                 </span>
                               )}
                             </div>
 
-                            {/* GitHub URL */}
-                            <p className="text-xs text-surface-500 font-mono truncate max-w-md">
-                              {repo.githubUrl}
-                            </p>
+                            <p className="text-xs text-ink-400 font-mono truncate max-w-md">{repo.githubUrl}</p>
 
-                            {/* Metrics Strip */}
                             {repo.status === 'READY' && (
-                              <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-surface-300 text-xs text-surface-600">
+                              <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-paper-300 text-xs text-ink-500">
                                 {repo.totalFiles != null && (
                                   <span className="flex items-center gap-1">
-                                    <Icons.File size={13} className="text-accent-cyan" />
-                                    <strong className="font-mono text-surface-900">{repo.totalFiles}</strong> files
+                                    <Icons.File size={13} className="text-teal-500" />
+                                    <strong className="font-mono text-ink-800">{repo.totalFiles}</strong> files
                                   </span>
                                 )}
                                 {repo.totalClasses != null && (
                                   <span className="flex items-center gap-1">
-                                    <Icons.Code size={13} className="text-accent-violet" />
-                                    <strong className="font-mono text-surface-900">{repo.totalClasses}</strong> classes
+                                    <Icons.Code size={13} className="text-violet-500" />
+                                    <strong className="font-mono text-ink-800">{repo.totalClasses}</strong> classes
                                   </span>
                                 )}
                                 {repo.totalMethods != null && (
                                   <span className="flex items-center gap-1">
-                                    <Icons.Cpu size={13} className="text-primary-600" />
-                                    <strong className="font-mono text-surface-900">{repo.totalMethods}</strong> methods
+                                    <Icons.Cpu size={13} className="text-vermilion-500" />
+                                    <strong className="font-mono text-ink-800">{repo.totalMethods}</strong> methods
                                   </span>
                                 )}
                                 {repo.totalRelationships != null && (
                                   <span className="flex items-center gap-1">
-                                    <Icons.Architecture size={13} className="text-accent-amber" />
-                                    <strong className="font-mono text-surface-900">{repo.totalRelationships}</strong> relations
+                                    <Icons.Architecture size={13} className="text-ochre-500" />
+                                    <strong className="font-mono text-ink-800">{repo.totalRelationships}</strong> relations
                                   </span>
                                 )}
                               </div>
                             )}
 
                             {repo.errorMessage && (
-                              <p className="text-xs text-accent-rose mt-2 bg-accent-rose/10 p-2 rounded-lg">
+                              <p className="text-xs text-rose-500 mt-2 bg-rose-100/60 p-2 rounded-sm border border-rose-500/20">
                                 {repo.errorMessage}
                               </p>
                             )}
                           </div>
 
-                          {/* Right Controls */}
                           <div className="flex items-center gap-1 flex-shrink-0">
                             <button
                               onClick={(e) => handleDelete(e, repo.id)}
                               disabled={deletingId === repo.id}
-                              className="p-2 rounded-xl text-surface-500 hover:text-accent-rose hover:bg-accent-rose/10 transition-colors opacity-0 group-hover:opacity-100"
-                              title="Delete Repository"
+                              className="p-2 rounded-sm text-ink-400 hover:text-rose-500 hover:bg-paper-200 transition-colors sm:opacity-0 sm:group-hover:opacity-100"
+                              title="Delete repository"
                             >
                               <Icons.Trash size={15} />
                             </button>
-                            <div className="p-2 rounded-xl text-surface-500 group-hover:text-primary-600 transition-colors">
+                            <div className="p-2 text-ink-300 group-hover:text-vermilion-600 transition-colors">
                               <Icons.ArrowRight size={16} />
                             </div>
                           </div>
@@ -394,52 +261,42 @@ export const Dashboard = () => {
           </div>
         </div>
 
-        {/* ─── Platform Capabilities Showcase ─── */}
-        <div className="mt-16 pt-12 border-t border-surface-300">
-          <div className="text-center mb-8">
-            <h2 className="text-xl font-bold font-display text-surface-900">Engine Capabilities</h2>
-            <p className="text-xs text-surface-600 mt-1">
-              Purpose-built analysis pipeline for enterprise architecture comprehension
-            </p>
+        {/* ── Capabilities ── */}
+        <div className="mt-14 pt-10 border-t border-paper-400">
+          <div className="mb-8">
+            <p className="annotation mb-2">Engine capabilities</p>
+            <h2 className="font-display text-2xl text-ink-900">A purpose-built comprehension pipeline</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
             {[
               {
                 icon: Icons.Architecture,
-                title: 'Spring Layer Visualization',
-                desc: 'Hierarchical AST dependency graph categorizing Controllers, Services, Repositories, and Entities with injection flow tracking.',
-                color: 'text-accent-orange',
-                bg: 'bg-accent-orange/10 border-accent-orange/20',
+                title: 'Spring layer visualization',
+                desc: 'A hierarchical AST dependency graph of Controllers, Services, Repositories, and Entities with injection-flow tracking.',
+                accent: 'text-vermilion-600 bg-vermilion-100 border-vermilion-200',
               },
               {
                 icon: Icons.Search,
-                title: 'Code Index & Semantic Vectors',
-                desc: 'AST-aware chunking preserving method signatures and summaries embedded via local sentence-transformers in ChromaDB.',
-                color: 'text-accent-cyan',
-                bg: 'bg-accent-cyan/10 border-accent-cyan/20',
+                title: 'Semantic code index',
+                desc: 'AST-aware chunking that preserves signatures and summaries, embedded into a vector store for retrieval.',
+                accent: 'text-teal-600 bg-teal-100 border-teal-300/50',
               },
               {
                 icon: Icons.Sparkles,
-                title: 'Citation-Grounded RAG',
-                desc: 'Gemini reasoning anchored in retrieved repository chunks, providing verifiable file:line links directly into the source code viewer.',
-                color: 'text-accent-violet',
-                bg: 'bg-accent-violet/10 border-accent-violet/20',
+                title: 'Citation-grounded RAG',
+                desc: 'LLM reasoning anchored to retrieved repository chunks, returning clickable file:line links into the source.',
+                accent: 'text-violet-600 bg-violet-100 border-violet-400/40',
               },
             ].map((f) => {
               const IconComp = f.icon;
               return (
-                <div
-                  key={f.title}
-                  className="glass-card p-6 rounded-2xl border border-surface-300 hover:border-surface-400 transition-all bg-white"
-                >
-                  <div
-                    className={`flex h-11 w-11 items-center justify-center rounded-2xl ${f.bg} border mb-4`}
-                  >
-                    <IconComp className={f.color} size={22} />
+                <div key={f.title} className="sheet p-5 sm:p-6">
+                  <div className={`flex h-11 w-11 items-center justify-center rounded-sm border mb-4 ${f.accent}`}>
+                    <IconComp size={22} />
                   </div>
-                  <h3 className="text-sm font-bold text-surface-900 mb-1.5">{f.title}</h3>
-                  <p className="text-xs text-surface-600 leading-relaxed">{f.desc}</p>
+                  <h3 className="font-display text-base text-ink-900 mb-1.5">{f.title}</h3>
+                  <p className="text-sm text-ink-500 leading-relaxed">{f.desc}</p>
                 </div>
               );
             })}

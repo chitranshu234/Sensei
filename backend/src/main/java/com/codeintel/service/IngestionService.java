@@ -1,141 +1,218 @@
 package com.codeintel.service;
 
 import com.codeintel.analyzer.LanguageAnalyzer;
-import com.codeintel.entity.*;
+import com.codeintel.entity.RepositoryEntity;
 import com.codeintel.model.AnalysisResult;
 import com.codeintel.model.RepoStatus;
-import com.codeintel.repository.*;
+import com.codeintel.repository.CodeChunkRepo;
+import com.codeintel.repository.CodeEntityRepo;
+import com.codeintel.repository.CodeFileRepo;
+import com.codeintel.repository.CodeRelationshipRepo;
+import com.codeintel.repository.RepositoryRepo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.Executor;
 
+/**
+ * Async ingestion pipeline: clone → walk → parse → persist → index.
+ *
+ * <p>Persistence is delegated to a separate transactional bean
+ * ({@link IngestionPersistence}) rather than a {@code @Transactional} method on this class.
+ * A self-invoked {@code @Transactional} method bypasses the Spring proxy entirely, which is
+ * the classic reason bulk saves silently run without a transaction.
+ */
 @Service
 public class IngestionService {
 
     private static final Logger log = LoggerFactory.getLogger(IngestionService.class);
 
+    /**
+     * Directories that never contain first-party source worth indexing. Skipping these is the
+     * single largest performance win on the walk: a typical Node project is >90% node_modules
+     * by file count, and walking it makes ingestion take minutes instead of seconds.
+     */
+    private static final Set<String> SKIPPED_DIRECTORIES = Set.of(
+            ".git", ".github", ".idea", ".vscode", ".mvn", ".gradle",
+            "node_modules", "bower_components", "vendor",
+            "target", "build", "dist", "out", "bin", "obj",
+            ".venv", "venv", "env", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache",
+            "coverage", ".nyc_output", ".next", ".nuxt", ".svelte-kit", ".turbo", ".cache",
+            "logs", "tmp", "temp", ".terraform"
+    );
+
+    /** Filenames with no extension-signal we still want to skip outright. */
+    private static final Set<String> SKIPPED_FILES = Set.of(
+            "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock", "uv.lock", "Cargo.lock"
+    );
+
+    /** Guard against pathological single files (generated bundles, minified assets). */
+    private static final long MAX_FILE_BYTES = 1_000_000L;
+
     private final RepositoryRepo repositoryRepo;
-    private final CodeFileRepo codeFileRepo;
-    private final CodeEntityRepo codeEntityRepo;
-    private final CodeRelationshipRepo codeRelationshipRepo;
-    private final CodeChunkRepo codeChunkRepo;
     private final GitCloneService gitCloneService;
+    private final IngestionPersistence persistence;
     private final List<LanguageAnalyzer> analyzers;
     private final AiServiceClient aiServiceClient;
+    private final Executor ingestionExecutor;
 
     public IngestionService(RepositoryRepo repositoryRepo,
-                            CodeFileRepo codeFileRepo,
-                            CodeEntityRepo codeEntityRepo,
-                            CodeRelationshipRepo codeRelationshipRepo,
-                            CodeChunkRepo codeChunkRepo,
                             GitCloneService gitCloneService,
+                            IngestionPersistence persistence,
                             List<LanguageAnalyzer> analyzers,
-                            AiServiceClient aiServiceClient) {
+                            AiServiceClient aiServiceClient,
+                            @Qualifier("ingestionExecutor") Executor ingestionExecutor) {
         this.repositoryRepo = repositoryRepo;
-        this.codeFileRepo = codeFileRepo;
-        this.codeEntityRepo = codeEntityRepo;
-        this.codeRelationshipRepo = codeRelationshipRepo;
-        this.codeChunkRepo = codeChunkRepo;
         this.gitCloneService = gitCloneService;
+        this.persistence = persistence;
         this.analyzers = analyzers;
         this.aiServiceClient = aiServiceClient;
+        this.ingestionExecutor = ingestionExecutor;
     }
 
     /**
-     * Async ingestion pipeline: clone → parse → index.
-     * Runs in a separate thread via Spring's @Async proxy.
+     * Kick off ingestion on the dedicated executor.
+     *
+     * <p>Note this method is intentionally <em>not</em> evaluated on the caller's thread: it
+     * immediately hands off to the pool so the HTTP request that submitted the repository
+     * returns in milliseconds with a QUEUED status.
      */
     @Async("ingestionExecutor")
     public void ingestAsync(Long repoId) {
+        ingest(repoId);
+    }
+
+    /** Synchronous pipeline body — also callable directly from tests. */
+    public void ingest(Long repoId) {
         RepositoryEntity repo = repositoryRepo.findById(repoId).orElse(null);
-        if (repo == null) return;
+        if (repo == null) {
+            log.warn("Ingestion requested for unknown repo {}", repoId);
+            return;
+        }
 
         try {
-            // Step 1: Clone
+            // ── Step 1: clone ────────────────────────────────────────────────
             updateStatus(repo, RepoStatus.CLONING);
-            
-            String branchToClone = repo.getDefaultBranch();
-            if (branchToClone == null || branchToClone.isBlank()) {
-                branchToClone = gitCloneService.detectDefaultBranch(repo.getGithubUrl());
-                repo.setDefaultBranch(branchToClone);
-                repositoryRepo.save(repo);
+
+            String branch = repo.getDefaultBranch();
+            if (branch == null || branch.isBlank()) {
+                branch = gitCloneService.detectDefaultBranch(repo.getGithubUrl());
+                repo.setDefaultBranch(branch);
             }
-            
-            String clonePath = gitCloneService.cloneRepository(repo.getGithubUrl(), branchToClone);
+            String clonePath = gitCloneService.cloneRepository(repo.getGithubUrl(), branch);
+
+            // ── Step 2: parse ────────────────────────────────────────────────
             repo.setClonePath(clonePath);
-            repositoryRepo.save(repo);
-
-            // Step 2: Parse
             updateStatus(repo, RepoStatus.PARSING);
+
             AnalysisResult analysis = new AnalysisResult();
-            
             Path root = Path.of(clonePath);
-            try {
-                Files.walkFileTree(root, new SimpleFileVisitor<>() {
-                    @Override
-                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                        String fileName = file.toString();
-                        for (LanguageAnalyzer analyzer : analyzers) {
-                            if (analyzer.supports(fileName)) {
-                                analyzer.analyzeFile(repoId, file, root, analysis);
-                                break;
-                            }
-                        }
-                        return FileVisitResult.CONTINUE;
-                    }
-                });
-            } catch (IOException e) {
-                log.error("Error walking directory {}: {}", clonePath, e.getMessage());
-            }
+            walkAndAnalyze(repoId, root, analysis);
 
-            // Save all parsed data
-            saveAnalysisResults(repoId, analysis);
+            log.info("Parsed repo {}: {} files, {} entities, {} relationships, {} chunks",
+                    repoId, analysis.files.size(), analysis.entities.size(),
+                    analysis.relationships.size(), analysis.chunks.size());
 
-            // Update stats
+            persistence.saveAll(repoId, analysis);
+
             repo.setTotalFiles(analysis.files.size());
             repo.setTotalClasses(analysis.entities.size());
             repo.setTotalMethods((int) analysis.chunks.stream()
                     .filter(c -> "METHOD".equals(c.getChunkType())).count());
             repo.setTotalRelationships(analysis.relationships.size());
 
-            // Step 3: Index (send chunks to AI service for embedding)
+            // ── Step 3: index into the vector store ──────────────────────────
             updateStatus(repo, RepoStatus.INDEXING);
-            try {
-                aiServiceClient.indexChunks(repoId, analysis.chunks);
-            } catch (Exception e) {
-                log.warn("AI service indexing failed (non-fatal): {}", e.getMessage());
-                // Non-fatal — the system still works without AI, just no semantic search
-            }
+            aiServiceClient.indexChunks(repoId, analysis.chunks);
 
-            // Done
             updateStatus(repo, RepoStatus.READY);
             log.info("Repository {} ingestion complete", repo.getName());
 
         } catch (Exception e) {
-            log.error("Ingestion failed for repo {}: {}", repoId, e.getMessage(), e);
-            repo.setStatus(RepoStatus.FAILED);
-            repo.setErrorMessage(e.getMessage());
-            repositoryRepo.save(repo);
+            log.error("Ingestion failed for repo {}", repoId, e);
+            // Re-read so we persist onto a fresh managed instance rather than a detached one.
+            repositoryRepo.findById(repoId).ifPresent(fresh -> {
+                fresh.setStatus(RepoStatus.FAILED);
+                fresh.setErrorMessage(truncate(e.getMessage(), 900));
+                repositoryRepo.save(fresh);
+            });
         }
     }
 
-    @Transactional
-    protected void saveAnalysisResults(Long repoId, AnalysisResult analysis) {
-        codeFileRepo.saveAll(analysis.files);
-        codeEntityRepo.saveAll(analysis.entities);
-        codeRelationshipRepo.saveAll(analysis.relationships);
-        codeChunkRepo.saveAll(analysis.chunks);
+    /**
+     * Walk the clone, skipping vendor/build directories, and hand each supported file to the
+     * first analyzer that claims it.
+     */
+    private void walkAndAnalyze(Long repoId, Path root, AnalysisResult analysis) {
+        int[] fileCount = {0};
+
+        try {
+            Files.walkFileTree(root, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                    if (!dir.equals(root) && SKIPPED_DIRECTORIES.contains(dir.getFileName().toString())) {
+                        return FileVisitResult.SKIP_SUBTREE;
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    if (!attrs.isRegularFile() || isSkippable(file, attrs)) {
+                        return FileVisitResult.CONTINUE;
+                    }
+                    String fileName = file.getFileName().toString();
+                    for (LanguageAnalyzer analyzer : analyzers) {
+                        if (analyzer.supports(fileName)) {
+                            analyzer.analyzeFile(repoId, file, root, analysis);
+                            fileCount[0]++;
+                            break;
+                        }
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFileFailed(Path file, IOException exc) {
+                    // Unreadable symlinks / permission errors should not abort the whole walk.
+                    log.debug("Skipping unreadable path {}: {}", file, exc.getMessage());
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        } catch (IOException e) {
+            log.error("Directory walk failed for {}: {}", root, e.getMessage());
+        }
+
+        log.info("Analyzed {} supported files under {}", fileCount[0], root);
+    }
+
+    private boolean isSkippable(Path file, BasicFileAttributes attrs) {
+        String name = file.getFileName().toString();
+        if (SKIPPED_FILES.contains(name) || name.endsWith(".min.js") || name.endsWith(".min.css")) {
+            return true;
+        }
+        return attrs.size() > MAX_FILE_BYTES;
     }
 
     private void updateStatus(RepositoryEntity repo, RepoStatus status) {
         repo.setStatus(status);
         repositoryRepo.save(repo);
+    }
+
+    private String truncate(String value, int max) {
+        if (value == null) return "Unknown error";
+        return value.length() <= max ? value : value.substring(0, max) + "…";
     }
 }

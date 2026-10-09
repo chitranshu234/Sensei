@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { Repository } from '../types/repository';
-import { api } from '../services/api';
+import { api, ApiError } from '../services/api';
+import type { Repository } from '../types/repository';
 
 interface AppState {
   repositories: Repository[];
@@ -10,39 +10,32 @@ interface AppState {
 
   fetchRepositories: () => Promise<void>;
   fetchRepository: (id: number) => Promise<void>;
-  submitRepository: (githubUrl: string, branch?: string) => Promise<Repository>;
+  submitRepository: (githubUrl: string, branch?: string) => Promise<Repository | null>;
   deleteRepository: (id: number) => Promise<void>;
   clearError: () => void;
-
-  chatMessages: { role: 'user' | 'assistant'; content: string }[];
-  addChatMessage: (msg: { role: 'user' | 'assistant'; content: string }) => void;
-  updateLastChatMessage: (content: string) => void;
-  clearChatMessages: () => void;
 }
 
+/**
+ * Repository state. Chat transcripts deliberately live in the chat component instead — they are
+ * scoped to a single repository view and should vanish on navigation, whereas this store is
+ * app-lifetime state.
+ */
 export const useAppStore = create<AppState>((set) => ({
   repositories: [],
   currentRepo: null,
   loading: false,
   error: null,
-  chatMessages: [],
-
-  addChatMessage: (msg) => set((state) => ({ chatMessages: [...state.chatMessages, msg] })),
-  updateLastChatMessage: (content) => set((state) => {
-    const newMessages = [...state.chatMessages];
-    if (newMessages.length > 0) {
-      newMessages[newMessages.length - 1] = { ...newMessages[newMessages.length - 1], content };
-    }
-    return { chatMessages: newMessages };
-  }),
-  clearChatMessages: () => set({ chatMessages: [] }),
 
   fetchRepositories: async () => {
     set({ loading: true, error: null });
     try {
-      const repos = await api.getRepositories() as Repository[];
+      const repos = (await api.getRepositories()) as Repository[];
       set({ repositories: repos, loading: false });
-    } catch (err: unknown) {
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        set({ loading: false });
+        return;
+      }
       set({ error: (err as Error).message, loading: false });
     }
   },
@@ -50,9 +43,13 @@ export const useAppStore = create<AppState>((set) => ({
   fetchRepository: async (id: number) => {
     set({ loading: true, error: null });
     try {
-      const repo = await api.getRepository(id) as Repository;
+      const repo = (await api.getRepository(id)) as Repository;
       set({ currentRepo: repo, loading: false });
-    } catch (err: unknown) {
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        set({ loading: false });
+        return;
+      }
       set({ error: (err as Error).message, loading: false });
     }
   },
@@ -60,15 +57,20 @@ export const useAppStore = create<AppState>((set) => ({
   submitRepository: async (githubUrl: string, branch?: string) => {
     set({ loading: true, error: null });
     try {
-      const repo = await api.submitRepository(githubUrl, branch) as Repository;
+      const repo = (await api.submitRepository(githubUrl, branch)) as Repository;
+      // Replace-or-append: re-submitting an existing URL returns the existing row rather than
+      // creating a duplicate, so a blind append would show the same repository twice.
       set((state) => ({
-        repositories: [...state.repositories, repo],
+        repositories: [repo, ...state.repositories.filter((r) => r.id !== repo.id)],
         loading: false,
       }));
       return repo;
-    } catch (err: unknown) {
-      set({ error: (err as Error).message, loading: false });
-      throw err;
+    } catch (err) {
+      set({
+        error: err instanceof ApiError ? err.message : 'Could not queue that repository.',
+        loading: false,
+      });
+      return null;
     }
   },
 
@@ -79,7 +81,7 @@ export const useAppStore = create<AppState>((set) => ({
         repositories: state.repositories.filter((r) => r.id !== id),
         currentRepo: state.currentRepo?.id === id ? null : state.currentRepo,
       }));
-    } catch (err: unknown) {
+    } catch (err) {
       set({ error: (err as Error).message });
     }
   },

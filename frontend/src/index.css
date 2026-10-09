@@ -1,255 +1,416 @@
 @import "tailwindcss";
 
-/* ─── Design Tokens (Tailwind v4 CSS-first) ─── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   SENSEI — DESIGN TOKENS
+   ───────────────────────────────────────────────────────────────────────────
+   Concept: the drafting sheet. Sensei's job is to turn a codebase into an
+   architecture drawing, so the interface borrows the language of technical
+   drawing rather than the SaaS dashboard kit: warm paper, graphite rules,
+   a single vermilion annotation colour, and structure carried by hairlines
+   instead of drop shadows.
+
+   Every colour below is a deliberate choice, not a framework default:
+     · paper        warm drafting stock, never pure white
+     · ink          graphite, slightly warm so it sits with the paper
+     · vermilion    the one loud voice — reserved for live/annotation states
+     · teal / violet  the only other accents, used for graph layers
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 @theme {
-  /* Teal / Mint Primary */
-  --color-primary-50: #f0fdfa;
-  --color-primary-100: #ccfbf1;
-  --color-primary-200: #99f6e4;
-  --color-primary-300: #5eead4;
-  --color-primary-400: #2dd4bf;
-  --color-primary-500: #5ebbaa; /* The signature teal */
-  --color-primary-600: #0d9488;
-  --color-primary-700: #0f766e;
-  --color-primary-800: #115e59;
-  --color-primary-900: #134e4a;
+  /* ── Paper (surfaces, light → dark) ── */
+  --color-paper-50:  #fffdf9;
+  --color-paper-100: #faf5ec;
+  --color-paper-200: #f2eadb;
+  --color-paper-300: #e7dbc7;
+  --color-paper-400: #d6c6ac;
+  --color-paper-500: #b8a688;
 
-  /* Surfaces (Warm Light Mode) */
-  --color-surface-50: #ffffff; /* Pure white */
-  --color-surface-100: #fdfbf7; /* Off-white card */
-  --color-surface-200: #f8f2eb; /* Main dashboard bg */
-  --color-surface-300: #f3e8dd; /* Hover states */
-  --color-surface-400: #e2cbbb; /* Borders */
-  --color-surface-500: #a89f91; /* Muted text */
-  --color-surface-600: #8c8273;
-  --color-surface-700: #595349;
-  --color-surface-800: #3c3731; /* Text body */
-  --color-surface-850: #2c2824; /* Text heading */
-  --color-surface-900: #1f1c19;
-  --color-surface-950: #141210;
+  /* ── Ink (text + rules, light → dark) ── */
+  --color-ink-300: #a89e8f;
+  --color-ink-400: #8b8172;
+  --color-ink-500: #6b6154;
+  --color-ink-600: #4a4238;
+  --color-ink-700: #332d26;
+  --color-ink-800: #221e19;
+  --color-ink-900: #14110e;
 
-  /* Accents based on mockup */
-  --color-accent-cyan: #5ebbaa; /* Teal */
-  --color-accent-emerald: #4ade80;
-  --color-accent-amber: #f69a3b; /* Orange */
-  --color-accent-orange: #eb6356; /* Coral */
-  --color-accent-rose: #f43f5e;
-  --color-accent-violet: #6f66c2; /* Purple */
-  --color-accent-indigo: #6366f1;
+  /* ── Vermilion: annotations, live state, primary action ── */
+  --color-vermilion-100: #fbe4da;
+  --color-vermilion-200: #f6c4b1;
+  --color-vermilion-400: #d9704c;
+  --color-vermilion-500: #bc4b26;
+  --color-vermilion-600: #9c3a1b;
+  --color-vermilion-700: #7a2c13;
 
-  --font-family-sans: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-family-display: "Clash Display", "Fraunces", "Plus Jakarta Sans", sans-serif;
-  --font-family-mono: "JetBrains Mono", monospace;
+  /* ── Teal: services / the "answer" voice ── */
+  --color-teal-100: #d8ebe6;
+  --color-teal-300: #7fc0b2;
+  --color-teal-500: #2f7d6b;
+  --color-teal-600: #23604f;
+  --color-teal-700: #1b4a3d;
 
-  --shadow-glow: 0 4px 20px rgba(0, 0, 0, 0.04);
-  --shadow-glow-amber: 0 4px 20px rgba(246, 154, 59, 0.15);
-  --shadow-glow-emerald: 0 4px 20px rgba(94, 187, 170, 0.15);
-  --shadow-glow-lg: 0 10px 30px rgba(0, 0, 0, 0.05);
+  /* ── Violet: controllers / graph structure ── */
+  --color-violet-100: #e6e2f2;
+  --color-violet-400: #8a7fc0;
+  --color-violet-500: #635a9e;
+  --color-violet-600: #4c457c;
+
+  /* ── Status ── */
+  --color-ochre-500: #c08a2b;
+  --color-ochre-100: #f7ecd4;
+  --color-rose-500:  #a8324a;
+  --color-rose-100:  #f7dde3;
+  --color-green-600: #3f7d4e;
+  --color-green-100: #dcecdd;
+
+  /* ── Type ──
+     Fraunces (variable serif) carries headlines and the wordmark: it reads as
+     printed, not as UI. Instrument Sans is the working face for anything a
+     person actually has to read at length. JetBrains Mono is reserved strictly
+     for code, paths and identifiers — never for decoration. */
+  --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
+  --font-sans:    "Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* ── Rules, not shadows. Depth in this interface comes from line weight. ── */
+  --rule-hairline: 1px;
+  --shadow-sheet:  0 1px 0 var(--color-paper-400), 0 12px 28px -18px rgba(20, 17, 14, 0.28);
 }
 
-/* ─── Base Styles ─── */
+/* ═══ Base ═════════════════════════════════════════════════════════════════ */
+
 @layer base {
   html {
     scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
-    font-family: var(--font-family-sans);
-    background-color: var(--color-surface-200); /* Warm beige background */
-    color: var(--color-surface-800); /* Dark text */
+    font-family: var(--font-sans);
+    background-color: var(--color-paper-200);
+    color: var(--color-ink-700);
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    selection-background-color: rgba(94, 187, 170, 0.2);
+    font-synthesis-weight: none;
   }
 
-  /* Custom refined scrollbar */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+  /* A faint drafting grid. Sized in rem so it tracks the type scale and never
+     turns into a moiré pattern at fractional zoom levels. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, rgba(107, 97, 84, 0.055) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(107, 97, 84, 0.055) 1px, transparent 1px);
+    background-size: 2rem 2rem;
   }
-  ::-webkit-scrollbar-track {
-    background: transparent;
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    color: var(--color-ink-800);
+    font-weight: 600;
+    letter-spacing: -0.015em;
   }
+
+  /* Visible, high-contrast focus for keyboard users only. */
+  :focus-visible {
+    outline: 2px solid var(--color-vermilion-500);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background: var(--color-vermilion-200);
+    color: var(--color-ink-900);
+  }
+
+  /* Thin graphite scrollbar — reads as part of the sheet, not the OS. */
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background: rgba(168, 159, 145, 0.2);
+    background: var(--color-paper-400);
+    border: 2px solid transparent;
+    background-clip: content-box;
     border-radius: 9999px;
   }
-  ::-webkit-scrollbar-thumb:hover {
-    background: rgba(94, 187, 170, 0.5);
-  }
+  ::-webkit-scrollbar-thumb:hover { background-clip: content-box; background-color: var(--color-ink-300); }
 }
 
-/* ─── Component Utilities ─── */
+/* ═══ Component primitives ═════════════════════════════════════════════════ */
+
 @layer components {
-  .font-display {
-    font-family: var(--font-family-display);
-    font-weight: 700;
+
+  /* A "sheet" is the single content container. Square corners, hairline border,
+     and a hairline top accent — the visual grammar of a drawing title block. */
+  .sheet {
+    position: relative;
+    background: var(--color-paper-50);
+    border: 1px solid var(--color-paper-400);
+    border-radius: 3px;
   }
 
-  .font-mono {
-    font-family: var(--font-family-mono);
-  }
+  .sheet-flush { box-shadow: none; }
+  .sheet-raised { box-shadow: var(--shadow-sheet); }
 
-  /* Light Theme Cards (replacing glassmorphism) */
-  .glass-card {
-    background: #ffffff;
-    border: none;
-    border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .glass-card:hover {
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
-  }
-
-  .glass-card-interactive {
+  /* Interactive sheet: lifts by a hairline thickening, not by scaling. */
+  .sheet-interactive {
     cursor: pointer;
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: border-color 140ms ease, background-color 140ms ease;
   }
-  .glass-card-interactive:hover {
-    transform: translateY(-2px);
-  }
-
-  /* Elevated Card (for popups/modals/panels) */
-  .glass-panel-elevated {
-    background: #ffffff;
-    border: 1px solid var(--color-surface-300);
-    border-radius: 20px;
-    box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.1);
+  .sheet-interactive:hover {
+    border-color: var(--color-ink-400);
+    background: var(--color-paper-100);
   }
 
-  /* Gradient Text - modified for light mode */
-  .gradient-text {
-    background: linear-gradient(135deg, var(--color-surface-850) 0%, var(--color-surface-600) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  /* Section label: small caps-free, letterspaced, sits ON a rule so it reads as
+     a drawing annotation rather than a decoration above a heading. */
+  .annotation {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-ink-400);
   }
 
-  .gradient-text-accent {
-    background: linear-gradient(135deg, var(--color-accent-cyan) 0%, #34d399 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  /* Buttons — rectangular, hairline, unambiguous about the action. */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    border-radius: 2px;
+    border: 1px solid transparent;
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1;
+    transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn:disabled { opacity: 0.42; cursor: not-allowed; }
+
+  .btn-primary {
+    background: var(--color-vermilion-500);
+    border-color: var(--color-vermilion-600);
+    color: #fff;
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--color-vermilion-600); }
+
+  .btn-secondary {
+    background: var(--color-paper-50);
+    border-color: var(--color-paper-400);
+    color: var(--color-ink-700);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    border-color: var(--color-ink-400);
+    background: var(--color-paper-100);
   }
 
-  .gradient-text-warm {
-    background: linear-gradient(135deg, var(--color-accent-amber) 0%, var(--color-accent-orange) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  .btn-ghost {
+    background: transparent;
+    color: var(--color-ink-600);
   }
+  .btn-ghost:hover:not(:disabled) { background: var(--color-paper-200); color: var(--color-ink-800); }
 
-  /* Tactile Pill Buttons */
-  .pill-button {
+  /* Inputs share the sheet grammar: paper fill, hairline, vermilion on focus. */
+  .field {
+    width: 100%;
+    background: var(--color-paper-50);
+    border: 1px solid var(--color-paper-400);
+    border-radius: 2px;
+    padding: 0.6875rem 0.875rem;
+    font-size: 0.875rem;
+    color: var(--color-ink-800);
+    transition: border-color 140ms ease, box-shadow 140ms ease;
+  }
+  .field::placeholder { color: var(--color-ink-300); }
+  .field:focus {
+    outline: none;
+    border-color: var(--color-vermilion-500);
+    box-shadow: 0 0 0 3px var(--color-vermilion-100);
+  }
+  .field:disabled { background: var(--color-paper-200); color: var(--color-ink-400); }
+
+  /* Hairline rule used between sections. */
+  .rule { border: 0; border-top: 1px solid var(--color-paper-400); }
+
+  /* Tab strip: the active tab is marked by a vermilion underline sitting on the
+     rule, so tab state and the rule are the same visual device. */
+  .tab-strip {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--color-paper-400);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tab-strip::-webkit-scrollbar { display: none; }
+
+  .tab {
+    position: relative;
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    border-radius: 9999px;
+    padding: 0.75rem 0.875rem;
     font-size: 0.8125rem;
     font-weight: 600;
-    background-color: var(--color-surface-100);
-    color: var(--color-surface-800);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    color: var(--color-ink-400);
+    white-space: nowrap;
+    transition: color 140ms ease;
+    cursor: pointer;
+    background: none;
+    border: none;
   }
-  .pill-button:hover {
-    background-color: #ffffff;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  .tab:hover { color: var(--color-ink-700); }
+  .tab-active { color: var(--color-ink-900); }
+  .tab-active::after {
+    content: "";
+    position: absolute;
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: -1px;
+    height: 2px;
+    background: var(--color-vermilion-500);
   }
 
-  /* React Flow Styles - Light Mode */
-  .react-flow__node {
-    font-family: var(--font-family-sans) !important;
+  /* Rendered-markdown body (onboarding guide, long-form AI answers). Tailwind's preflight
+     strips default list/heading styling, so re-establish a readable rhythm scoped to .md-body. */
+  .md-body { color: var(--color-ink-700); font-size: 0.875rem; line-height: 1.7; }
+  .md-body h1, .md-body h2, .md-body h3, .md-body h4 {
+    font-family: var(--font-display);
+    color: var(--color-ink-900);
+    margin: 1.1em 0 0.4em;
+    line-height: 1.25;
   }
+  .md-body h1 { font-size: 1.25rem; }
+  .md-body h2 { font-size: 1.1rem; }
+  .md-body h3 { font-size: 1rem; }
+  .md-body h1:first-child, .md-body h2:first-child, .md-body h3:first-child { margin-top: 0; }
+  .md-body p { margin: 0 0 0.75em; }
+  .md-body ul, .md-body ol { margin: 0 0 0.75em; padding-left: 1.25rem; }
+  .md-body ul { list-style: disc; }
+  .md-body ol { list-style: decimal; }
+  .md-body li { margin: 0.2em 0; }
+  .md-body a { color: var(--color-vermilion-600); text-decoration: underline; text-underline-offset: 2px; }
+  .md-body code {
+    font-family: var(--font-mono);
+    font-size: 0.8125em;
+    background: var(--color-paper-200);
+    border: 1px solid var(--color-paper-400);
+    border-radius: 2px;
+    padding: 0.05em 0.35em;
+  }
+  .md-body pre {
+    background: var(--color-paper-100);
+    border: 1px solid var(--color-paper-400);
+    border-radius: 3px;
+    padding: 0.85rem;
+    overflow-x: auto;
+    margin: 0 0 0.9em;
+  }
+  .md-body pre code { background: none; border: 0; padding: 0; }
+  .md-body blockquote {
+    border-left: 2px solid var(--color-vermilion-400);
+    padding-left: 0.85rem;
+    color: var(--color-ink-500);
+    font-style: italic;
+    margin: 0 0 0.8em;
+  }
+  .md-body table { width: 100%; border-collapse: collapse; margin: 0 0 0.9em; font-size: 0.8125rem; }
+  .md-body th, .md-body td { border: 1px solid var(--color-paper-400); padding: 0.4rem 0.6rem; text-align: left; }
+  .md-body th { background: var(--color-paper-100); font-weight: 600; color: var(--color-ink-900); }
 
-  .react-flow__background {
-    background: var(--color-surface-200) !important;
-  }
+  /* Graph canvas chrome (React Flow overrides). */
+  .react-flow__node { font-family: var(--font-sans) !important; }
+  .react-flow__background { background-color: var(--color-paper-200) !important; }
+  .react-flow__attribution { display: none !important; }
 
   .react-flow__minimap {
-    background: #ffffff !important;
-    border-radius: 14px !important;
-    border: 1px solid var(--color-surface-300) !important;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06) !important;
-    overflow: hidden;
+    background: var(--color-paper-50) !important;
+    border: 1px solid var(--color-paper-400) !important;
+    border-radius: 2px !important;
   }
-
   .react-flow__minimap-mask {
-    fill: rgba(94, 187, 170, 0.1) !important;
-    stroke: var(--color-accent-cyan) !important;
-    stroke-width: 1.5 !important;
+    fill: rgba(188, 75, 38, 0.08) !important;
+    stroke: var(--color-vermilion-500) !important;
+    stroke-width: 1 !important;
   }
 
   .react-flow__controls {
-    border-radius: 12px !important;
-    border: 1px solid var(--color-surface-300) !important;
-    background: #ffffff !important;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06) !important;
+    border: 1px solid var(--color-paper-400) !important;
+    border-radius: 2px !important;
+    box-shadow: none !important;
     overflow: hidden;
-    padding: 2px !important;
   }
-
   .react-flow__controls-button {
-    background: transparent !important;
+    background: var(--color-paper-50) !important;
     border: none !important;
-    border-bottom: 1px solid var(--color-surface-200) !important;
-    fill: var(--color-surface-800) !important;
-    transition: all 0.15s ease !important;
+    border-bottom: 1px solid var(--color-paper-300) !important;
+    fill: var(--color-ink-600) !important;
+    width: 26px !important;
+    height: 26px !important;
   }
-
-  .react-flow__controls-button:last-child {
-    border-bottom: none !important;
-  }
-
-  .react-flow__controls-button:hover {
-    background: var(--color-surface-100) !important;
-    fill: var(--color-surface-800) !important;
-  }
+  .react-flow__controls-button:last-child { border-bottom: none !important; }
+  .react-flow__controls-button:hover { background: var(--color-paper-200) !important; }
 
   .react-flow__handle {
-    width: 8px !important;
-    height: 8px !important;
-    border-radius: 9999px !important;
-    border: 2px solid #ffffff !important;
-    transition: transform 0.2s ease, background-color 0.2s ease !important;
+    width: 5px !important;
+    height: 5px !important;
+    border-radius: 0 !important;
+    border: 1px solid var(--color-paper-50) !important;
+    transition: transform 120ms ease !important;
   }
-
-  .react-flow__handle:hover {
-    transform: scale(1.4) !important;
-  }
+  .react-flow__handle:hover { transform: scale(1.9) !important; }
 }
 
-/* ─── Animations ─── */
+/* ═══ Motion ═══════════════════════════════════════════════════════════════ */
+
 @layer utilities {
-  @keyframes pulse-dot {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.45; transform: scale(1.2); }
-  }
-
-  @keyframes float-subtle {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-4px); }
-  }
-
+  /* Conveyor for graph edges: a marching dash shows direction of dependency.
+     This is information, not decoration — it only appears on data flow. */
   @keyframes edge-flow {
-    0% { stroke-dashoffset: 24; }
-    100% { stroke-dashoffset: 0; }
+    to { stroke-dashoffset: -16; }
+  }
+  .edge-flow {
+    stroke-dasharray: 5 4;
+    animation: edge-flow 700ms linear infinite;
   }
 
-  .animate-pulse-dot {
-    animation: pulse-dot 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  /* One orchestrated entrance per view, staggered by index. */
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .rise { animation: rise 420ms cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+
+  @keyframes draw-line {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(1); }
+  }
+  .draw-line {
+    transform-origin: left;
+    animation: draw-line 620ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
   }
 
-  .animate-float {
-    animation: float-subtle 4s ease-in-out infinite;
+  @keyframes pulse-mark {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.25; }
   }
+  .pulse-mark { animation: pulse-mark 1.6s ease-in-out infinite; }
 
-  .animate-edge-flow {
-    stroke-dasharray: 6 6;
-    animation: edge-flow 1.2s linear infinite;
+  /* Respect a user's reduced-motion preference across the whole sheet. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+    .edge-flow { animation: none; stroke-dasharray: none; }
   }
 }

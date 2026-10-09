@@ -10,27 +10,27 @@ interface Props {
   highlightLines?: number[];
 }
 
+const langMap: Record<string, string> = {
+  java: 'java',
+  py: 'python',
+  ts: 'typescript',
+  tsx: 'tsx',
+  js: 'javascript',
+  jsx: 'jsx',
+  yml: 'yaml',
+  yaml: 'yaml',
+  xml: 'xml',
+  json: 'json',
+  md: 'markdown',
+  sql: 'sql',
+  properties: 'properties',
+  gradle: 'groovy',
+};
+
 export const CodeViewer = ({ filePath, content, lineCount, highlightLines }: Props) => {
   const [copied, setCopied] = useState(false);
   const fileName = filePath.split('/').pop() || filePath;
   const extension = fileName.split('.').pop() || '';
-
-  const langMap: Record<string, string> = {
-    java: 'java',
-    py: 'python',
-    ts: 'typescript',
-    tsx: 'tsx',
-    js: 'javascript',
-    jsx: 'jsx',
-    yml: 'yaml',
-    yaml: 'yaml',
-    xml: 'xml',
-    json: 'json',
-    md: 'markdown',
-    sql: 'sql',
-    properties: 'properties',
-    gradle: 'groovy',
-  };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(content);
@@ -41,53 +41,45 @@ export const CodeViewer = ({ filePath, content, lineCount, highlightLines }: Pro
   const calculatedLines = lineCount || (content ? content.split('\n').length : 0);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-white rounded-2xl border border-surface-300 shadow-sm">
-      {/* File Header Bar */}
-      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-surface-300 bg-surface-100 backdrop-blur-md">
+    <div className="sheet flex flex-col h-full overflow-hidden">
+      {/* File header */}
+      <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-paper-400 bg-paper-100">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-accent-cyan/10 border border-accent-cyan/20 text-accent-cyan flex-shrink-0">
+          <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-teal-100 text-teal-600 border border-teal-300/50 flex-shrink-0">
             <Icons.Code size={13} />
           </div>
-          <div className="min-w-0">
-            <span className="text-xs font-mono font-semibold text-surface-900 truncate block">
-              {filePath}
-            </span>
-          </div>
+          <span className="text-xs font-mono text-ink-800 truncate block" title={filePath}>
+            {filePath}
+          </span>
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
           {calculatedLines > 0 && (
-            <span className="text-[11px] font-mono text-surface-600 px-2 py-0.5 rounded-md bg-surface-200">
+            <span className="text-[11px] font-mono text-ink-500 px-2 py-0.5 rounded-sm bg-paper-200 hidden sm:inline">
               {calculatedLines} lines
             </span>
           )}
-
-          <span className="text-[10px] font-mono uppercase font-bold text-primary-600 px-2 py-0.5 rounded-md bg-primary-500/10 border border-primary-500/20">
+          <span className="text-[10px] font-mono uppercase font-bold text-vermilion-700 px-2 py-0.5 rounded-sm bg-vermilion-100 border border-vermilion-200">
             {extension || 'text'}
           </span>
-
           <button
             onClick={handleCopy}
-            className="p-1.5 rounded-lg text-surface-500 hover:text-surface-900 hover:bg-black/5 transition-colors flex items-center gap-1 text-xs"
-            title="Copy code to clipboard"
+            className="btn btn-ghost px-2 py-1.5 text-xs"
+            title="Copy to clipboard"
           >
-            {copied ? (
-              <Icons.Check size={14} className="text-accent-emerald" />
-            ) : (
-              <Icons.Copy size={14} />
-            )}
-            <span className="text-[11px] hidden sm:inline">{copied ? 'Copied' : 'Copy'}</span>
+            {copied ? <Icons.Check size={14} className="text-green-600" /> : <Icons.Copy size={14} />}
+            <span className="hidden sm:inline">{copied ? 'Copied' : 'Copy'}</span>
           </button>
         </div>
       </div>
 
-      {/* Code Content */}
-      <div className="flex-1 overflow-auto bg-[#FAFAFA] text-xs">
+      {/* Code */}
+      <div className="flex-1 overflow-auto bg-paper-50 text-xs">
         <SyntaxHighlighter
           language={langMap[extension.toLowerCase()] || 'text'}
           style={oneLight}
           showLineNumbers
-          wrapLines
+          wrapLongLines
           customStyle={{
             margin: 0,
             padding: '16px',
@@ -97,19 +89,19 @@ export const CodeViewer = ({ filePath, content, lineCount, highlightLines }: Pro
             fontFamily: 'JetBrains Mono, monospace',
           }}
           lineNumberStyle={{
-            color: '#475569',
+            color: '#a89e8f',
             fontSize: '11px',
             paddingRight: '16px',
             userSelect: 'none',
           }}
-          lineProps={(lineNumber) => {
+          lineProps={(lineNumber: number) => {
             const isHighlighted = highlightLines?.includes(lineNumber);
             return {
               style: {
-                backgroundColor: isHighlighted ? 'rgba(99, 102, 241, 0.18)' : 'transparent',
+                backgroundColor: isHighlighted ? 'rgba(188, 75, 38, 0.12)' : 'transparent',
                 display: 'block',
                 paddingLeft: '8px',
-                borderLeft: isHighlighted ? '3px solid #818cf8' : '3px solid transparent',
+                borderLeft: isHighlighted ? '3px solid #bc4b26' : '3px solid transparent',
               },
             };
           }}

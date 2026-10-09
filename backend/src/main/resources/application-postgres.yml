@@ -1,19 +1,22 @@
-server:
-  port: 8080
-
+# Activate with: --spring.profiles.active=postgres
 spring:
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:codeintel}
-    username: ${POSTGRES_USER:postgres}
-    password: ${POSTGRES_PASSWORD:postgres}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:codeintel}
     driverClassName: org.postgresql.Driver
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
+      # Replace with `validate` once you adopt Flyway/Liquibase migrations.
       ddl-auto: update
+    show-sql: false
+
+  h2:
+    console:
+      enabled: false
 
 app:
-  storage:
-    repo-dir: ./storage/repos
-  ai-service:
-    base-url: ${AI_SERVICE_URL:http://localhost:8000}
+  security:
+    # The H2 console is meaningless on Postgres and must stay off.
+    h2-console-enabled: false

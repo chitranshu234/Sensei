@@ -42,9 +42,26 @@ public class JavaCodeAnalyzer implements LanguageAnalyzer {
     private static final Set<String> SPRING_COMPONENT_ANNOTATIONS = Set.of("Component");
     private static final Set<String> SPRING_CONFIG_ANNOTATIONS = Set.of("Configuration");
 
+    /** Path segments that mark generated or test-only sources. */
+    private static final Set<String> NON_SOURCE_SEGMENTS = Set.of(
+            "test", "tests", "testfixtures", "it", "integrationtest", "generated", "generated-sources"
+    );
+
     @Override
     public boolean supports(String fileName) {
-        return fileName.endsWith(".java") && !fileName.contains("test");
+        String normalized = fileName.replace('\\', '/').toLowerCase();
+        if (!normalized.endsWith(".java")) {
+            return false;
+        }
+        // Match whole path segments, not substrings: "LatestService.java" must be accepted
+        // even though it contains the letters "test", while "src/test/java/..." is rejected.
+        String[] parts = normalized.split("/");
+        for (int i = 0; i < parts.length - 1; i++) {
+            if (NON_SOURCE_SEGMENTS.contains(parts[i])) {
+                return false;
+            }
+        }
+        return !parts[parts.length - 1].endsWith("test.java");
     }
 
     @Override
@@ -261,19 +278,32 @@ public class JavaCodeAnalyzer implements LanguageAnalyzer {
     }
 
     /**
-     * Resolve relationship source/target IDs from entity map after all entities are parsed.
+     * Deduplicate this file's relationships and opportunistically backfill the numeric
+     * source/target entity IDs from the entities resolved within the same file.
+     *
+     * <p>IDs are best-effort only: an entity declared in another file is not in this map yet,
+     * so {@link com.codeintel.service.ArchitectureService} resolves graph edges by name instead.
+     * Storing names as the durable key is what makes the graph order-independent.
      */
     private void buildRelationships(Long repoId, AnalysisResult result,
                                     Map<String, CodeEntity> entityMap) {
-        // Deduplicate relationships
         Set<String> seen = new HashSet<>();
         List<CodeRelationshipEntity> deduped = new ArrayList<>();
 
         for (CodeRelationshipEntity rel : result.relationships) {
             String key = rel.getSourceName() + "->" + rel.getTargetName() + ":" + rel.getRelationType();
-            if (seen.add(key)) {
-                deduped.add(rel);
+            if (!seen.add(key)) {
+                continue;
             }
+            CodeEntity source = entityMap.get(rel.getSourceName());
+            CodeEntity target = entityMap.get(rel.getTargetName());
+            if (source != null && source.getId() != null) {
+                rel.setSourceEntityId(source.getId());
+            }
+            if (target != null && target.getId() != null) {
+                rel.setTargetEntityId(target.getId());
+            }
+            deduped.add(rel);
         }
         result.relationships = deduped;
     }

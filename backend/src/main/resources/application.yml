@@ -1,30 +1,65 @@
 server:
   port: 8080
+  # Graceful shutdown lets in-flight ingestion and SSE streams finish before the JVM exits.
+  shutdown: graceful
 
 spring:
   application:
     name: ai-codebase-intelligence
+
   datasource:
     url: jdbc:h2:file:./data/codeintel;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE
     driverClassName: org.h2.Driver
     username: sa
-    password: 
+    password: ""
+
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
       ddl-auto: update
     show-sql: false
+    open-in-view: false   # avoids holding a DB connection open while rendering a response
+
   h2:
     console:
       enabled: true
       path: /h2-console
 
+  # Cap multipart and request sizes; the app only ever accepts small JSON bodies.
+  mvc:
+    async:
+      request-timeout: 300000
+
 app:
   storage:
     repo-dir: ./storage/repos
+
   ai-service:
     base-url: http://localhost:8000
+
+  security:
+    # MUST be overridden in any real deployment (env var APP_SECURITY_JWT_SECRET).
+    # Minimum 32 bytes — JwtService refuses to start with a shorter key.
+    jwt:
+      secret: ${APP_JWT_SECRET:change-me-in-production-this-key-is-32-bytes-minimum}
+      expiration-minutes: 120
+      issuer: codeintel
+    # Exposes an unauthenticated raw SQL console. Leave false outside local development.
+    h2-console-enabled: true
+    allowed-origins: http://localhost:5173,http://127.0.0.1:5173
 
 logging:
   level:
     com.codeintel: INFO
+    org.springframework.security: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Only health is exposed. Exposing env/beans/configprops would leak the JWT secret
+        # and database credentials to anyone who can reach the port.
+        include: health
+  endpoint:
+    health:
+      show-details: never
