@@ -14,6 +14,7 @@ export const App = () => {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/repo/:id" element={<RepositoryPage />} />
+            <Route path="/oauth2/callback" element={<Dashboard />} />
           </Routes>
         </main>
 

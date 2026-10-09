@@ -12,6 +12,14 @@ export const AuthGate = ({ children }: { children: ReactNode }) => {
   const { user, initialising, bootstrap } = useAuthStore();
 
   useEffect(() => {
+    // Intercept OAuth2 token if present in URL
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (token) {
+      localStorage.setItem('codeintel.token', token);
+      window.history.replaceState({}, document.title, '/');
+    }
+
     attachAuthExpiryListener();
     bootstrap();
   }, [bootstrap]);

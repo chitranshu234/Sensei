@@ -58,6 +58,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final UserDetailsService userDetailsService;
     private final ObjectMapper objectMapper;
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
 
     @Value("${app.security.h2-console-enabled:true}")
     private boolean h2ConsoleEnabled;
@@ -67,10 +68,12 @@ public class SecurityConfig {
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
                           UserDetailsService userDetailsService,
-                          ObjectMapper objectMapper) {
+                          ObjectMapper objectMapper,
+                          OAuth2SuccessHandler oAuth2SuccessHandler) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.userDetailsService = userDetailsService;
         this.objectMapper = objectMapper;
+        this.oAuth2SuccessHandler = oAuth2SuccessHandler;
     }
 
     @Bean
@@ -85,7 +88,7 @@ public class SecurityConfig {
                     // Only the token-less auth endpoints are public. /api/auth/me carries a
                     // bearer token and must stay protected — it falls through to the
                     // authenticated() catch-all below.
-                    auth.requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/health").permitAll();
+                    auth.requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/health", "/oauth2/**", "/login/oauth2/**").permitAll();
                     auth.requestMatchers("/api/health", "/actuator/health").permitAll();
 
                     // The H2 console renders inside a frameset, so it needs SAMEORIGIN. It is a
@@ -98,6 +101,9 @@ public class SecurityConfig {
                     auth.dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ASYNC).permitAll();
                     auth.anyRequest().authenticated();
                 })
+                .oauth2Login(oauth2 -> oauth2
+                        .successHandler(oAuth2SuccessHandler)
+                )
                 .headers(headers -> headers.frameOptions(frame -> {
                     if (h2ConsoleEnabled) {
                         frame.sameOrigin();
