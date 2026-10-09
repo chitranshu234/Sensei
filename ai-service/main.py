@@ -69,6 +69,11 @@ async def health():
     return {"status": "ok", "service": "ai-codebase-intelligence"}
 
 
+@app.get("/")
+async def root():
+    return {"status": "ok", "message": "Render health check passed"}
+
+
 # ─── Index Endpoint ───────────────────────────────────────────
 
 @app.post("/api/ai/index")
