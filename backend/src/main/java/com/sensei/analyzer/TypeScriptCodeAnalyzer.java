@@ -145,6 +145,14 @@ public class TypeScriptCodeAnalyzer implements LanguageAnalyzer {
                 entity.setEntityType(EntityType.CLASS);
                 entity.setFilePath(relativePath);
                 result.entities.add(entity);
+
+                CodeRelationshipEntity rel = new CodeRelationshipEntity();
+                rel.setRepoId(repoId);
+                rel.setSourceName(baseSourceName);
+                rel.setTargetName(entity.getName());
+                rel.setRelationType(RelationType.CONTAINS);
+                rel.setDescription(baseSourceName + " contains " + entity.getName());
+                result.relationships.add(rel);
             }
 
             // Extract Functions / Arrow Functions
@@ -154,19 +162,16 @@ public class TypeScriptCodeAnalyzer implements LanguageAnalyzer {
                 String name = funcMatcher.group(1);
                 if (name.equals("if") || name.equals("switch") || name.equals("catch") || name.equals("return")) continue;
 
-                CodeEntity entity = new CodeEntity();
-                entity.setRepoId(repoId);
-                entity.setName(name);
-                entity.setQualifiedName(relativePath + ":" + name);
-                
-                // If it starts with a capital letter in JS/TS, it's likely a React Component
-                if (Character.isUpperCase(name.charAt(0))) {
-                    entity.setEntityType(EntityType.COMPONENT);
-                } else {
-                    entity.setEntityType(EntityType.METHOD);
-                }
-                entity.setFilePath(relativePath);
-                result.entities.add(entity);
+                CodeChunkEntity chunk = new CodeChunkEntity();
+                chunk.setRepoId(repoId);
+                chunk.setFilePath(relativePath);
+                chunk.setEntityName(name);
+                chunk.setChunkType(Character.isUpperCase(name.charAt(0)) ? "COMPONENT" : "METHOD");
+                chunk.setStartLine(1);
+                chunk.setEndLine(lines.length);
+                chunk.setContent("Function/Component: " + name);
+                chunk.setSummary("TS/JS function: " + name);
+                result.chunks.add(chunk);
             }
 
         } catch (IOException e) {

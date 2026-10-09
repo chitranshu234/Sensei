@@ -1,7 +1,7 @@
 # Sensei — AI Codebase Intelligence & Onboarding
 
 Sensei turns any public GitHub repository into something you can *read like a drawing*. Point it at a
-repo and it clones the code, parses the Abstract Syntax Tree, maps the Spring layers into an
+repo and it clones the code, parses the Abstract Syntax Tree (Java) or extracts structure (TS/JS, Python, C/C++), maps the layers into an
 interactive architecture graph, and answers questions about the code — grounded in the actual source,
 with clickable `file:line` citations.
 
@@ -13,7 +13,7 @@ with clickable `file:line` citations.
 
 - **🔐 Authentication** — Secure Google OAuth2 login and JWT-based sessions.
 - **🗺️ Interactive architecture graph** — a layered dependency graph (Controllers → Services →
-  Repositories → Entities) rendered with React Flow, with a dedicated "Spring Layers" view, search,
+  Repositories → Entities for Java; intuitive path-based layers for TS, Python, C/C++) rendered with React Flow, with a dedicated "Spring Layers" view, search,
   filtering, and a node inspector that shows who injects/calls what.
 - **📂 AST-aware code explorer** — browse the parsed file tree and read any file with syntax
   highlighting and citation line-highlighting.
@@ -61,7 +61,7 @@ Three cooperating services:
 | Layer | Technology |
 |-------|------------|
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS v4, Zustand, React Flow (`@xyflow/react`), dagre |
-| Backend | Spring Boot 3.3.5, Java 21, Spring Security OAuth2 + JWT (jjwt), Spring Data JPA, WebFlux (`WebClient`), JavaParser, JGit |
+| Backend | Spring Boot 3.3.5, Java 21, Spring Security OAuth2 + JWT (jjwt), Spring Data JPA, WebFlux (`WebClient`), JavaParser, JGit, Regex Analyzers (TS/Python/C) |
 | Database | H2 (file-based, default) or PostgreSQL (profile) |
 | AI service | Python 3.10+, FastAPI, LangChain, LangGraph, ChromaDB |
 | LLM | **Groq** (default: Llama 3.3 70B, with automatic fallback chain) or **Google Gemini** |
@@ -170,8 +170,8 @@ URL in the browser. Sign in using your Google account to get started.
    on a background thread pool.
 2. **Clone** (`CLONING`) → a shallow clone via JGit (GitHub HTTPS only).
 3. **Parse** (`PARSING`) → each file is walked and handed to a language analyzer: JavaParser builds a
-   real Java AST (classes, Spring stereotypes, injections, calls, inheritance); a regex analyzer
-   handles TS/JS/JSX. Classes, relationships, and code chunks are persisted in one transaction.
+   real Java AST (classes, Spring stereotypes, injections, calls, inheritance); regex analyzers
+   handle TS/JS/JSX, Python, and C/C++ structures. Classes, relationships, and code chunks are persisted in one transaction.
 4. **Index** (`INDEXING`) → chunks are sent to the AI service, embedded locally with MiniLM, and
    stored per-repository in ChromaDB.
 5. **Ready** (`READY`) → the frontend renders the architecture graph and enables code search + chat.

@@ -31,7 +31,7 @@ interface Props {
 // ─── Layer themes, in the drafting palette ───
 // Each layer gets one voice from the sheet's limited palette: vermilion for the entry/adapter
 // layer, violet for application services, ochre for persistence, teal/green for the domain.
-export const LAYER_THEMES: Record<
+const LAYER_THEMES: Record<
   string,
   { bg: string; border: string; badgeBg: string; badgeText: string; accent: string; label: string; glow: string }
 > = {
@@ -99,8 +99,8 @@ const CustomArchitectureNode: React.FC<NodeProps> = ({ data, selected }) => {
         boxShadow: selected ? `0 0 0 2px ${theme.glow}` : '0 1px 0 #BAC095',
       }}
     >
-      <Handle type="target" position={Position.Top} style={{ background: theme.border, top: -3 }} />
-      <Handle type="target" position={Position.Left} style={{ background: theme.border, left: -3 }} />
+      <Handle type="target" position={Position.Top} id="top" style={{ background: theme.border, top: -3 }} />
+      <Handle type="target" position={Position.Left} id="left" style={{ background: theme.border, left: -3 }} />
 
       {/* Header */}
       <div
@@ -139,8 +139,8 @@ const CustomArchitectureNode: React.FC<NodeProps> = ({ data, selected }) => {
         )}
       </div>
 
-      <Handle type="source" position={Position.Bottom} style={{ background: theme.border, bottom: -3 }} />
-      <Handle type="source" position={Position.Right} style={{ background: theme.border, right: -3 }} />
+      <Handle type="source" position={Position.Bottom} id="bottom" style={{ background: theme.border, bottom: -3 }} />
+      <Handle type="source" position={Position.Right} id="right" style={{ background: theme.border, right: -3 }} />
     </div>
   );
 };
@@ -149,7 +149,7 @@ const nodeTypes = { archNode: CustomArchitectureNode };
 
 export const ArchitectureGraphView: React.FC<Props> = ({ repoId, graph, onNodeClick, onAskAboutNode }) => {
   const [activeGraph, setActiveGraph] = useState<ArchitectureGraph>({
-    nodes: graph?.nodes || [],
+    nodes: (graph?.nodes || []).filter(n => n.type !== 'METHOD'),
     edges: graph?.edges || [],
   });
   const [isSpringOnly, setIsSpringOnly] = useState(false);
@@ -167,7 +167,10 @@ export const ArchitectureGraphView: React.FC<Props> = ({ repoId, graph, onNodeCl
 
   useEffect(() => {
     if (!isSpringOnly) {
-      setActiveGraph({ nodes: graph?.nodes || [], edges: graph?.edges || [] });
+      const filteredNodes = (graph?.nodes || []).filter(n => n.type !== 'METHOD');
+      const nodeIds = new Set(filteredNodes.map(n => n.id));
+      const filteredEdges = (graph?.edges || []).filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
+      setActiveGraph({ nodes: filteredNodes, edges: filteredEdges });
     }
   }, [graph, isSpringOnly]);
 
@@ -236,16 +239,17 @@ export const ArchitectureGraphView: React.FC<Props> = ({ repoId, graph, onNodeCl
     const searchLower = searchQuery.toLowerCase();
 
     const getLayerGroup = (node: ArchNode): { id: string; label: string } => {
-      if (node.type === 'REST_CONTROLLER' || node.type === 'CONTROLLER') return { id: 'group_adapters', label: 'Adapters' };
-      if (node.type === 'SERVICE') return { id: 'group_application', label: 'Application' };
-      if (node.type === 'REPOSITORY' || node.type === 'ENTITY' || node.type === 'RECORD') return { id: 'group_domain', label: 'Domain' };
+      if (node.type === 'REST_CONTROLLER' || node.type === 'CONTROLLER') return { id: 'group_controllers', label: 'Controllers' };
+      if (node.type === 'SERVICE') return { id: 'group_services', label: 'Services' };
+      if (node.type === 'REPOSITORY') return { id: 'group_repositories', label: 'Repositories' };
+      if (node.type === 'ENTITY' || node.type === 'RECORD') return { id: 'group_entities', label: 'Entities' };
       if (node.type === 'CONFIGURATION') return { id: 'group_config', label: 'Configuration' };
       if (node.filePath) {
         const path = node.filePath.toLowerCase();
-        if (path.includes('/components/')) return { id: 'group_components', label: 'UI Components' };
+        if (path.includes('/components/')) return { id: 'group_ui_components', label: 'UI Components' };
         if (path.includes('/pages/') || path.includes('/views/')) return { id: 'group_pages', label: 'Pages & Views' };
-        if (path.includes('/services/') || path.includes('/api/')) return { id: 'group_services', label: 'Services & API' };
-        if (path.includes('/models/') || path.includes('/schemas/')) return { id: 'group_domain', label: 'Domain / Models' };
+        if (path.includes('/services/') || path.includes('/api/')) return { id: 'group_api_services', label: 'Services & API' };
+        if (path.includes('/models/') || path.includes('/schemas/')) return { id: 'group_models', label: 'Models' };
         if (path.includes('/hooks/')) return { id: 'group_hooks', label: 'Hooks' };
         if (path.includes('/utils/') || path.includes('/helpers/')) return { id: 'group_utils', label: 'Utilities' };
       }
@@ -254,10 +258,10 @@ export const ArchitectureGraphView: React.FC<Props> = ({ repoId, graph, onNodeCl
 
     const dagreGraph = new dagre.graphlib.Graph({ compound: true });
     dagreGraph.setDefaultEdgeLabel(() => ({}));
-    dagreGraph.setGraph({ rankdir: 'TB', nodesep: 50, ranksep: 100, align: 'UL' });
+    dagreGraph.setGraph({ rankdir: 'LR', nodesep: 150, ranksep: 200, align: 'UL' });
 
-    const nodeWidth = 260;
-    const nodeHeight = 110;
+    const nodeWidth = 280;
+    const nodeHeight = 150;
 
     const filteredNodeIds = new Set(filteredNodes.map((n) => n.id));
     const validEdges = activeGraph.edges.filter((e) => filteredNodeIds.has(e.source) && filteredNodeIds.has(e.target));
@@ -268,7 +272,14 @@ export const ArchitectureGraphView: React.FC<Props> = ({ repoId, graph, onNodeCl
       groupsUsed.set(group.id, group.label);
     });
 
-    groupsUsed.forEach((label, id) => dagreGraph.setNode(id, { label, clusterLabelPos: 'top' }));
+    groupsUsed.forEach((label, id) => dagreGraph.setNode(id, { 
+      label, 
+      clusterLabelPos: 'top',
+      paddingTop: 80,
+      paddingBottom: 60,
+      paddingLeft: 60,
+      paddingRight: 60
+    }));
     filteredNodes.forEach((n) => {
       dagreGraph.setNode(n.id, { width: nodeWidth, height: nodeHeight });
       dagreGraph.setParent(n.id, getLayerGroup(n).id);
@@ -285,10 +296,10 @@ export const ArchitectureGraphView: React.FC<Props> = ({ repoId, graph, onNodeCl
         nodesList.push({
           id,
           type: 'default',
-          position: { x: pos.x - pos.width / 2 - 20, y: pos.y - pos.height / 2 - 40 },
+          position: { x: pos.x - pos.width / 2, y: pos.y - pos.height / 2 },
           style: {
-            width: pos.width + 40,
-            height: pos.height + 60,
+            width: pos.width,
+            height: pos.height,
             backgroundColor: 'rgba(212, 222, 149, 0.3)',
             border: '1.5px dashed #BAC095',
             borderRadius: '4px',
@@ -297,7 +308,7 @@ export const ArchitectureGraphView: React.FC<Props> = ({ repoId, graph, onNodeCl
           },
           data: {
             label: (
-              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: '#757c54', fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase', textAlign: 'center', paddingTop: '8px' }}>
+              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: '#757c54', fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase', textAlign: 'center', paddingTop: '16px' }}>
                 {label}
               </div>
             ),
@@ -341,6 +352,8 @@ export const ArchitectureGraphView: React.FC<Props> = ({ repoId, graph, onNodeCl
           id: `edge-${e.id}`,
           source: e.source,
           target: e.target,
+          sourceHandle: 'right',
+          targetHandle: 'left',
           type: 'step',
           animated: edgeTheme.animated || !!isConnected,
           label: e.label?.toLowerCase() || edgeTheme.label,

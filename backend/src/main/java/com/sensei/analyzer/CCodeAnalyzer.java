@@ -101,6 +101,14 @@ public class CCodeAnalyzer implements LanguageAnalyzer {
                 entity.setEntityType(EntityType.CLASS);
                 entity.setFilePath(relativePath);
                 result.entities.add(entity);
+
+                CodeRelationshipEntity rel = new CodeRelationshipEntity();
+                rel.setRepoId(repoId);
+                rel.setSourceName(baseSourceName);
+                rel.setTargetName(entity.getName());
+                rel.setRelationType(RelationType.CONTAINS);
+                rel.setDescription(baseSourceName + " contains " + entity.getName());
+                result.relationships.add(rel);
             }
 
             Matcher funcMatcher = FUNC_PATTERN.matcher(source);
@@ -108,13 +116,17 @@ public class CCodeAnalyzer implements LanguageAnalyzer {
                 String name = funcMatcher.group(1);
                 // skip basic keywords that might match the simple heuristic
                 if (name.equals("if") || name.equals("while") || name.equals("for") || name.equals("switch") || name.equals("return")) continue;
-                CodeEntity entity = new CodeEntity();
-                entity.setRepoId(repoId);
-                entity.setName(name);
-                entity.setQualifiedName(relativePath + ":" + name);
-                entity.setEntityType(EntityType.METHOD);
-                entity.setFilePath(relativePath);
-                result.entities.add(entity);
+                
+                CodeChunkEntity methodChunk = new CodeChunkEntity();
+                methodChunk.setRepoId(repoId);
+                methodChunk.setFilePath(relativePath);
+                methodChunk.setEntityName(name);
+                methodChunk.setChunkType("METHOD");
+                methodChunk.setStartLine(1);
+                methodChunk.setEndLine(lines.length);
+                methodChunk.setContent("Function: " + name);
+                methodChunk.setSummary("C/C++ function: " + name);
+                result.chunks.add(methodChunk);
             }
 
         } catch (IOException e) {

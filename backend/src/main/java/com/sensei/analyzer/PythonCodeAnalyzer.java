@@ -114,18 +114,29 @@ public class PythonCodeAnalyzer implements LanguageAnalyzer {
                 entity.setEntityType(EntityType.CLASS);
                 entity.setFilePath(relativePath);
                 result.entities.add(entity);
+
+                CodeRelationshipEntity rel = new CodeRelationshipEntity();
+                rel.setRepoId(repoId);
+                rel.setSourceName(baseSourceName);
+                rel.setTargetName(entity.getName());
+                rel.setRelationType(RelationType.CONTAINS);
+                rel.setDescription(baseSourceName + " contains " + entity.getName());
+                result.relationships.add(rel);
             }
 
             Matcher funcMatcher = FUNC_PATTERN.matcher(source);
             while (funcMatcher.find()) {
                 String name = funcMatcher.group(1);
-                CodeEntity entity = new CodeEntity();
-                entity.setRepoId(repoId);
-                entity.setName(name);
-                entity.setQualifiedName(relativePath + ":" + name);
-                entity.setEntityType(EntityType.METHOD);
-                entity.setFilePath(relativePath);
-                result.entities.add(entity);
+                CodeChunkEntity methodChunk = new CodeChunkEntity();
+                methodChunk.setRepoId(repoId);
+                methodChunk.setFilePath(relativePath);
+                methodChunk.setEntityName(name);
+                methodChunk.setChunkType("METHOD");
+                methodChunk.setStartLine(1);
+                methodChunk.setEndLine(lines.length);
+                methodChunk.setContent("Function: " + name);
+                methodChunk.setSummary("Python function: " + name);
+                result.chunks.add(methodChunk);
             }
 
         } catch (IOException e) {

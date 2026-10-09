@@ -171,7 +171,7 @@ export const Dashboard = () => {
               ) : filteredRepos.length === 0 ? (
                 <div className="py-12 text-center text-sm text-ink-400">No repositories match this filter.</div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
                   {filteredRepos.map((repo) => {
                     const st = statusConfig[repo.status] || statusConfig.QUEUED;
                     const isProcessing = !['READY', 'FAILED'].includes(repo.status);

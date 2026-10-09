@@ -57,8 +57,8 @@ Keeping them separate means each can be built, scaled, and reasoned about on its
      Spring stereotypes (`@RestController`, `@Service`, `@Repository`, `@Entity`, …), and records
      relationships: which class **injects** which (`@Autowired`/constructor), which **calls** which,
      and `extends`/`implements`.
-   - **TS/JS** → `TypeScriptCodeAnalyzer` uses regex heuristics to find components, functions,
-     classes, and imports.
+   - **TS/JS, Python, C/C++** → `TypeScriptCodeAnalyzer`, `PythonCodeAnalyzer`, and `CCodeAnalyzer` use regex heuristics to find components, functions,
+     classes, and imports/includes.
    - Everything becomes three lists: **entities** (classes/components), **relationships** (edges), and
      **chunks** (pieces of code with summaries, for the AI).
 3. The whole result is saved **in one database transaction** (`IngestionPersistence`).
@@ -425,6 +425,7 @@ Good to be able to talk about debugging:
    (`paper/ink/vermilion`), but several screens still used the old, deleted classes
    (`surface-*/primary-*/glass-card`). Fix: migrated every component to the new system and made it
    responsive. Also loaded the correct fonts (Fraunces/Instrument Sans).
+5. **Duplicate architecture nodes for TS/Python/C++.** The analyzers for these languages were extracting both the file itself and its exported functions/methods as full architecture graph `COMPONENT` entities, causing duplicate floating boxes. Fix: changed them to extract functions as `CodeChunkEntity` (for AI RAG) while reserving `CodeEntity` for the main file/class, keeping the architecture graph clean and correctly wired with `CONTAINS` relationships.
 
 ---
 
