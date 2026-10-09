@@ -64,7 +64,7 @@ public class AiServiceClient {
     /**
      * Send a chat question to the AI service and get a streaming response.
      */
-    public Flux<String> chat(Long repoId, String message, String sessionId) {
+    public Flux<byte[]> chat(Long repoId, String message, String sessionId) {
         Map<String, Object> request = new HashMap<>();
         request.put("repoId", repoId);
         request.put("message", message);
@@ -74,10 +74,17 @@ public class AiServiceClient {
                 .uri("/api/ai/chat")
                 .bodyValue(request)
                 .retrieve()
-                .bodyToFlux(String.class)
+                .bodyToFlux(org.springframework.core.io.buffer.DataBuffer.class)
+                .map(buffer -> {
+                    byte[] bytes = new byte[buffer.readableByteCount()];
+                    buffer.read(bytes);
+                    org.springframework.core.io.buffer.DataBufferUtils.release(buffer);
+                    return bytes;
+                })
                 .onErrorResume(e -> {
                     log.error("AI chat error: {}", e.getMessage());
-                    return Flux.just("{\"error\": \"AI service unavailable: " + e.getMessage() + "\"}");
+                    String errorMsg = "{\"error\": \"AI service unavailable: " + e.getMessage() + "\"}";
+                    return Flux.just(errorMsg.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 });
     }
 

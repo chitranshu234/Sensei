@@ -173,7 +173,7 @@ def _format_context(docs: list[dict]) -> str:
 async def stream_chat(repo_id: int, question: str) -> AsyncIterator[str]:
     """Stream a RAG-powered answer about the codebase, with auto model fallback."""
     # 1. Retrieve relevant code chunks
-    docs = vector_store_service.search(repo_id, question, k=4)
+    docs = vector_store_service.search(repo_id, question, k=10)
 
     if not docs:
         yield "I don't have any indexed code for this repository yet. Please make sure the repository has been fully processed and indexed."

@@ -95,6 +95,7 @@ public class SecurityConfig {
                         auth.requestMatchers("/h2-console/**").permitAll();
                     }
 
+                    auth.dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ASYNC).permitAll();
                     auth.anyRequest().authenticated();
                 })
                 .headers(headers -> headers.frameOptions(frame -> {
