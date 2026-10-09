@@ -62,14 +62,14 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
 }
 
 /**
- * Consume a Server-Sent Events stream from a POST.
+ * Stream a chat answer from a POST, forwarding each chunk as it arrives.
  *
- * <p>{@code EventSource} cannot be used here because it only issues GET requests and cannot send
- * a JSON body or an Authorization header. So the stream is read manually and parsed to the SSE
- * spec: consecutive {@code data:} lines are one payload rejoined with newlines. That detail is
- * what keeps markdown code fences and paragraph breaks intact — splitting on every newline would
- * shred the model's formatting. Line fragments are held in a buffer until a blank line signals a
- * complete frame, because a chunk boundary can land mid-line.
+ * <p>{@code EventSource} cannot be used (it is GET-only and cannot send a JSON body or an
+ * Authorization header), so the response body is read manually. The backend streams the answer as
+ * plain UTF-8 text, so we simply decode and forward each chunk <em>verbatim</em>. Keeping it raw
+ * (rather than re-parsing SSE frames) is what preserves the model's markdown exactly — headings,
+ * lists, and fenced code blocks all survive — and avoids the double-`data:`-prefix bug that SSE
+ * framing is prone to.
  */
 export async function streamChat(
   repoId: number,
@@ -81,12 +81,19 @@ export async function streamChat(
   },
   signal?: AbortSignal
 ): Promise<void> {
-  const response = await fetch(`${BASE_URL}/repositories/${repoId}/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    body: JSON.stringify({ repoId, message }),
-    signal,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}/repositories/${repoId}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ repoId, message }),
+      signal,
+    });
+  } catch (err) {
+    if ((err as { name?: string })?.name === 'AbortError') return;
+    handlers.onError?.('Unable to reach the server. Is the backend running?');
+    return;
+  }
 
   if (response.status === 401) {
     clearSession();
@@ -102,45 +109,20 @@ export async function streamChat(
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
-  let buffer = '';
-  let finished = false;
 
   try {
-    while (!finished) {
+    while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-
-      // Frames are separated by a blank line.
-      let separator = buffer.indexOf('\n\n');
-      while (separator !== -1) {
-        const frame = buffer.slice(0, separator);
-        buffer = buffer.slice(separator + 2);
-        separator = buffer.indexOf('\n\n');
-
-        const eventName = frame
-          .split('\n')
-          .filter((line) => line.startsWith('event:'))
-          .map((line) => line.slice(6).trim())[0];
-
-        const dataLines = frame
-          .split('\n')
-          .filter((line) => line.startsWith('data:'))
-          .map((line) => (line.startsWith('data: ') ? line.slice(6) : line.slice(5)));
-
-        if (dataLines.length === 0) continue;
-
-        // Per the SSE spec each `data:` line is one line of the payload.
-        const payload = dataLines.join('\n');
-
-        if (eventName === 'done' || payload === '[DONE]') {
-          finished = true;
-          handlers.onDone?.();
-          break;
-        }
-        handlers.onToken(payload);
-      }
+      const text = decoder.decode(value, { stream: true });
+      if (text) handlers.onToken(text);
+    }
+    const tail = decoder.decode(); // flush any multi-byte remainder
+    if (tail) handlers.onToken(tail);
+    handlers.onDone?.();
+  } catch (err) {
+    if ((err as { name?: string })?.name !== 'AbortError') {
+      handlers.onError?.('The connection was interrupted.');
     }
   } finally {
     reader.cancel().catch(() => {
