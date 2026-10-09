@@ -35,24 +35,24 @@ export const LAYER_THEMES: Record<
   string,
   { bg: string; border: string; badgeBg: string; badgeText: string; accent: string; label: string; glow: string }
 > = {
-  REST_CONTROLLER: { bg: '#fbe4da', border: '#bc4b26', badgeBg: '#fbe4da', badgeText: '#7a2c13', accent: '#9c3a1b', label: 'REST Controller', glow: 'rgba(188,75,38,0.12)' },
-  CONTROLLER: { bg: '#fbe4da', border: '#bc4b26', badgeBg: '#fbe4da', badgeText: '#7a2c13', accent: '#9c3a1b', label: 'Controller', glow: 'rgba(188,75,38,0.12)' },
-  SERVICE: { bg: '#e6e2f2', border: '#635a9e', badgeBg: '#e6e2f2', badgeText: '#4c457c', accent: '#4c457c', label: 'Service', glow: 'rgba(99,90,158,0.12)' },
-  REPOSITORY: { bg: '#f7ecd4', border: '#c08a2b', badgeBg: '#f7ecd4', badgeText: '#8a6420', accent: '#9a6c1e', label: 'Repository', glow: 'rgba(192,138,43,0.12)' },
-  ENTITY: { bg: '#d8ebe6', border: '#2f7d6b', badgeBg: '#d8ebe6', badgeText: '#1b4a3d', accent: '#23604f', label: 'Entity', glow: 'rgba(47,125,107,0.12)' },
-  COMPONENT: { bg: '#dcecdd', border: '#3f7d4e', badgeBg: '#dcecdd', badgeText: '#2f5e3a', accent: '#2f5e3a', label: 'Component', glow: 'rgba(63,125,78,0.12)' },
-  CONFIGURATION: { bg: '#f2eadb', border: '#6b6154', badgeBg: '#f2eadb', badgeText: '#4a4238', accent: '#4a4238', label: 'Configuration', glow: 'rgba(107,97,84,0.12)' },
-  CLASS: { bg: '#faf5ec', border: '#8b8172', badgeBg: '#f2eadb', badgeText: '#4a4238', accent: '#4a4238', label: 'Class', glow: 'rgba(139,129,114,0.12)' },
-  INTERFACE: { bg: '#e6e2f2', border: '#8a7fc0', badgeBg: '#e6e2f2', badgeText: '#4c457c', accent: '#635a9e', label: 'Interface', glow: 'rgba(138,127,192,0.12)' },
+  REST_CONTROLLER: { bg: '#D4DE95', border: '#636B2F', badgeBg: '#BAC095', badgeText: '#3D4127', accent: '#3D4127', label: 'REST Controller', glow: 'rgba(99, 107, 47, 0.12)' },
+  CONTROLLER: { bg: '#D4DE95', border: '#636B2F', badgeBg: '#BAC095', badgeText: '#3D4127', accent: '#3D4127', label: 'Controller', glow: 'rgba(99, 107, 47, 0.12)' },
+  SERVICE: { bg: '#f8f9f2', border: '#3D4127', badgeBg: '#f8f9f2', badgeText: '#3D4127', accent: '#3D4127', label: 'Service', glow: 'rgba(61, 65, 39, 0.12)' },
+  REPOSITORY: { bg: '#e8ecd3', border: '#BAC095', badgeBg: '#e8ecd3', badgeText: '#3D4127', accent: '#3D4127', label: 'Repository', glow: 'rgba(186, 192, 149, 0.12)' },
+  ENTITY: { bg: '#f0f3e3', border: '#636B2F', badgeBg: '#f0f3e3', badgeText: '#3D4127', accent: '#3D4127', label: 'Entity', glow: 'rgba(99, 107, 47, 0.12)' },
+  COMPONENT: { bg: '#D4DE95', border: '#3D4127', badgeBg: '#D4DE95', badgeText: '#3D4127', accent: '#3D4127', label: 'Component', glow: 'rgba(61, 65, 39, 0.12)' },
+  CONFIGURATION: { bg: '#f8f9f2', border: '#636B2F', badgeBg: '#f8f9f2', badgeText: '#3D4127', accent: '#3D4127', label: 'Configuration', glow: 'rgba(99, 107, 47, 0.12)' },
+  CLASS: { bg: '#e8ecd3', border: '#BAC095', badgeBg: '#e8ecd3', badgeText: '#3D4127', accent: '#3D4127', label: 'Class', glow: 'rgba(186, 192, 149, 0.12)' },
+  INTERFACE: { bg: '#f0f3e3', border: '#636B2F', badgeBg: '#f0f3e3', badgeText: '#3D4127', accent: '#3D4127', label: 'Interface', glow: 'rgba(99, 107, 47, 0.12)' },
 };
 
 const EDGE_THEMES: Record<string, { stroke: string; label: string; animated: boolean }> = {
-  INJECTS: { stroke: '#635a9e', label: 'injects', animated: true },
-  CALLS: { stroke: '#2f7d6b', label: 'calls', animated: false },
-  EXTENDS: { stroke: '#3f7d4e', label: 'extends', animated: false },
-  IMPLEMENTS: { stroke: '#c08a2b', label: 'implements', animated: false },
-  USES_ANNOTATION: { stroke: '#8b8172', label: 'uses', animated: false },
-  CONTAINS: { stroke: '#a89e8f', label: 'contains', animated: false },
+  INJECTS: { stroke: '#3D4127', label: 'injects', animated: true },
+  CALLS: { stroke: '#636B2F', label: 'calls', animated: false },
+  EXTENDS: { stroke: '#BAC095', label: 'extends', animated: false },
+  IMPLEMENTS: { stroke: '#D4DE95', label: 'implements', animated: false },
+  USES_ANNOTATION: { stroke: '#636B2F', label: 'uses', animated: false },
+  CONTAINS: { stroke: '#3D4127', label: 'contains', animated: false },
 };
 
 export interface ArchNodeData {
@@ -94,9 +94,9 @@ const CustomArchitectureNode: React.FC<NodeProps> = ({ data, selected }) => {
       }`}
       style={{
         width: 250,
-        background: '#fffdf9',
-        border: `1.5px solid ${selected ? theme.border : '#d6c6ac'}`,
-        boxShadow: selected ? `0 0 0 2px ${theme.glow}` : '0 1px 0 #d6c6ac',
+        background: '#f8f9f2',
+        border: `1.5px solid ${selected ? theme.border : '#BAC095'}`,
+        boxShadow: selected ? `0 0 0 2px ${theme.glow}` : '0 1px 0 #BAC095',
       }}
     >
       <Handle type="target" position={Position.Top} style={{ background: theme.border, top: -3 }} />
@@ -289,15 +289,15 @@ export const ArchitectureGraphView: React.FC<Props> = ({ repoId, graph, onNodeCl
           style: {
             width: pos.width + 40,
             height: pos.height + 60,
-            backgroundColor: 'rgba(242, 234, 219, 0.55)',
-            border: '1.5px dashed #d6c6ac',
+            backgroundColor: 'rgba(212, 222, 149, 0.3)',
+            border: '1.5px dashed #BAC095',
             borderRadius: '4px',
             zIndex: -1,
             pointerEvents: 'none',
           },
           data: {
             label: (
-              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: '#8b8172', fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase', textAlign: 'center', paddingTop: '8px' }}>
+              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: '#757c54', fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase', textAlign: 'center', paddingTop: '8px' }}>
                 {label}
               </div>
             ),
@@ -334,7 +334,7 @@ export const ArchitectureGraphView: React.FC<Props> = ({ repoId, graph, onNodeCl
     return activeGraph.edges
       .filter((e) => activeNodeIds.has(e.source) && activeNodeIds.has(e.target))
       .map((e) => {
-        const edgeTheme = EDGE_THEMES[e.type] || { stroke: '#a89e8f', label: e.label || 'relates', animated: false };
+        const edgeTheme = EDGE_THEMES[e.type] || { stroke: '#8c936b', label: e.label || 'relates', animated: false };
         const isConnected = selectedNode && (e.source === selectedNode.id || e.target === selectedNode.id);
 
         return {
@@ -344,14 +344,14 @@ export const ArchitectureGraphView: React.FC<Props> = ({ repoId, graph, onNodeCl
           type: 'step',
           animated: edgeTheme.animated || !!isConnected,
           label: e.label?.toLowerCase() || edgeTheme.label,
-          labelStyle: { fill: isConnected ? '#14110e' : '#8b8172', fontSize: 10, fontWeight: 600, fontFamily: 'JetBrains Mono' },
-          labelBgStyle: { fill: '#fffdf9', fillOpacity: 0.9, rx: 2, ry: 2 },
+          labelStyle: { fill: isConnected ? '#14160d' : '#757c54', fontSize: 10, fontWeight: 600, fontFamily: 'JetBrains Mono' },
+          labelBgStyle: { fill: '#f8f9f2', fillOpacity: 0.9, rx: 2, ry: 2 },
           style: {
-            stroke: isConnected ? edgeTheme.stroke : '#d6c6ac',
+            stroke: isConnected ? edgeTheme.stroke : '#BAC095',
             strokeWidth: isConnected ? 2.5 : 1.5,
             opacity: selectedNode ? (isConnected ? 1 : 0.2) : 0.85,
           },
-          markerEnd: { type: MarkerType.ArrowClosed, color: isConnected ? edgeTheme.stroke : '#b8a688', width: 14, height: 14 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: isConnected ? edgeTheme.stroke : '#a3a97c', width: 14, height: 14 },
         };
       });
   }, [activeGraph.edges, initialNodes, selectedNode]);
@@ -512,12 +512,12 @@ export const ArchitectureGraphView: React.FC<Props> = ({ repoId, graph, onNodeCl
               nodeStrokeWidth={2}
               nodeColor={(n) => {
                 const archNode = (n.data as unknown as ArchNodeData)?.archNode;
-                return LAYER_THEMES[archNode?.type]?.border || '#8b8172';
+                return LAYER_THEMES[archNode?.type]?.border || '#757c54';
               }}
               zoomable
               pannable
             />
-            <Background variant={BackgroundVariant.Dots} gap={24} size={1.2} color="#d6c6ac" />
+            <Background variant={BackgroundVariant.Dots} gap={24} size={1.2} color="#BAC095" />
 
             <Panel position="top-left">
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-sm bg-paper-50/90 backdrop-blur-md border border-paper-400 text-xs">
@@ -537,7 +537,7 @@ export const ArchitectureGraphView: React.FC<Props> = ({ repoId, graph, onNodeCl
           <div className="absolute top-4 right-4 z-40 w-[calc(100vw-2rem)] sm:w-96 max-h-[calc(100%-32px)] flex flex-col rounded-sm bg-paper-50/97 backdrop-blur-xl border border-paper-400 shadow-sheet overflow-hidden">
             <div
               className="p-4 border-b border-paper-400 flex items-start justify-between"
-              style={{ background: LAYER_THEMES[selectedNode.type]?.bg || '#f2eadb' }}
+              style={{ background: LAYER_THEMES[selectedNode.type]?.bg || '#f8f9f2' }}
             >
               <div className="min-w-0 pr-2">
                 <span

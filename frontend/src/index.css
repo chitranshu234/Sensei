@@ -18,50 +18,50 @@
 
 @theme {
   /* ── Paper (surfaces, light → dark) ── */
-  --color-paper-50:  #fffdf9;
-  --color-paper-100: #faf5ec;
-  --color-paper-200: #f2eadb;
-  --color-paper-300: #e7dbc7;
-  --color-paper-400: #d6c6ac;
-  --color-paper-500: #b8a688;
+  --color-paper-50:  #f8f9f2;
+  --color-paper-100: #f0f3e3;
+  --color-paper-200: #e8ecd3;
+  --color-paper-300: #D4DE95;
+  --color-paper-400: #BAC095;
+  --color-paper-500: #a3a97c;
 
   /* ── Ink (text + rules, light → dark) ── */
-  --color-ink-300: #a89e8f;
-  --color-ink-400: #8b8172;
-  --color-ink-500: #6b6154;
-  --color-ink-600: #4a4238;
-  --color-ink-700: #332d26;
-  --color-ink-800: #221e19;
-  --color-ink-900: #14110e;
+  --color-ink-300: #8c936b;
+  --color-ink-400: #757c54;
+  --color-ink-500: #636B2F;
+  --color-ink-600: #505626;
+  --color-ink-700: #3D4127;
+  --color-ink-800: #292c1a;
+  --color-ink-900: #14160d;
 
-  /* ── Vermilion: annotations, live state, primary action ── */
-  --color-vermilion-100: #fbe4da;
-  --color-vermilion-200: #f6c4b1;
-  --color-vermilion-400: #d9704c;
-  --color-vermilion-500: #bc4b26;
-  --color-vermilion-600: #9c3a1b;
-  --color-vermilion-700: #7a2c13;
+  /* ── Vermilion (Now Mossy Olive): annotations, live state, primary action ── */
+  --color-vermilion-100: #e8ecd3;
+  --color-vermilion-200: #BAC095;
+  --color-vermilion-400: #757c54;
+  --color-vermilion-500: #636B2F;
+  --color-vermilion-600: #505626;
+  --color-vermilion-700: #3D4127;
 
-  /* ── Teal: services / the "answer" voice ── */
-  --color-teal-100: #d8ebe6;
-  --color-teal-300: #7fc0b2;
-  --color-teal-500: #2f7d6b;
-  --color-teal-600: #23604f;
-  --color-teal-700: #1b4a3d;
+  /* ── Teal (Now Sage) ── */
+  --color-teal-100: #f0f3e3;
+  --color-teal-300: #D4DE95;
+  --color-teal-500: #636B2F;
+  --color-teal-600: #505626;
+  --color-teal-700: #3D4127;
 
-  /* ── Violet: controllers / graph structure ── */
-  --color-violet-100: #e6e2f2;
-  --color-violet-400: #8a7fc0;
-  --color-violet-500: #635a9e;
-  --color-violet-600: #4c457c;
+  /* ── Violet (Now Dark Olive) ── */
+  --color-violet-100: #f8f9f2;
+  --color-violet-400: #BAC095;
+  --color-violet-500: #636B2F;
+  --color-violet-600: #3D4127;
 
   /* ── Status ── */
-  --color-ochre-500: #c08a2b;
-  --color-ochre-100: #f7ecd4;
-  --color-rose-500:  #a8324a;
-  --color-rose-100:  #f7dde3;
-  --color-green-600: #3f7d4e;
-  --color-green-100: #dcecdd;
+  --color-ochre-500: #BAC095;
+  --color-ochre-100: #f0f3e3;
+  --color-rose-500:  #636B2F;
+  --color-rose-100:  #e8ecd3;
+  --color-green-600: #3D4127;
+  --color-green-100: #D4DE95;
 
   /* ── Type ──
      Fraunces (variable serif) carries headlines and the wordmark: it reads as
