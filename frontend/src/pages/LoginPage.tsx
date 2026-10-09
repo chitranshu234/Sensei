@@ -216,7 +216,7 @@ export const LoginPage = () => {
               </div>
 
               <a
-                href="http://localhost:8080/oauth2/authorization/google"
+                href={`${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:8080'}/oauth2/authorization/google`}
                 className="btn w-full border border-paper-400 bg-white text-ink-700 hover:bg-paper-50 transition-colors flex items-center justify-center gap-2"
               >
                 <svg viewBox="0 0 24 24" className="h-4 w-4" xmlns="http://www.w3.org/2000/svg">
