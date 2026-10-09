@@ -179,7 +179,7 @@ export const Dashboard = () => {
                     return (
                       <div
                         key={repo.id}
-                        onClick={() => navigate(`/repo/${repo.id}`)}
+                        onClick={() => navigate(`/repo/${repo.id}`, { state: { fromDashboard: true } })}
                         className="sheet sheet-interactive group p-4 sm:p-5"
                       >
                         <div className="flex items-start justify-between gap-4">

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useAppStore } from '../store/appStore';
@@ -20,9 +20,18 @@ const PANEL_HEIGHT = 'h-[calc(100vh-16rem)] min-h-[520px]';
 export const RepositoryPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const repoId = Number(id);
 
   const { currentRepo, fetchRepository, loading: storeLoading } = useAppStore();
+
+  const handleBack = () => {
+    if ((location.state as any)?.fromDashboard) {
+      navigate(-1);
+    } else {
+      navigate('/', { replace: true });
+    }
+  };
 
   const [activeTab, setActiveTab] = useState<Tab>('architecture');
   const [files, setFiles] = useState<CodeFile[]>([]);
@@ -139,7 +148,7 @@ export const RepositoryPage = () => {
           <p className="text-sm text-ink-500 mb-6">
             This repository does not exist or has been removed.
           </p>
-          <button onClick={() => navigate('/')} className="btn btn-primary mx-auto">
+          <button onClick={handleBack} className="btn btn-primary mx-auto">
             <Icons.ArrowRight size={14} className="rotate-180" />
             Back to workspace
           </button>
@@ -153,7 +162,7 @@ export const RepositoryPage = () => {
       <div className="relative z-10 pt-10 pb-12">
         <div className="mx-auto max-w-3xl px-4 sm:px-6">
           <button
-            onClick={() => navigate('/')}
+            onClick={handleBack}
             className="btn btn-ghost mb-6 px-2"
           >
             <Icons.ArrowRight size={14} className="rotate-180" />
@@ -190,7 +199,7 @@ export const RepositoryPage = () => {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <button
-                onClick={() => navigate('/')}
+                onClick={handleBack}
                 className="p-1.5 rounded-sm text-ink-400 hover:text-ink-900 hover:bg-paper-200 transition-colors flex-shrink-0"
                 title="Back to workspace"
               >
