@@ -6,6 +6,18 @@
 
 ---
 
+## 🌟 Why this project stands out on a resume
+This project is an exceptional portfolio piece because it demonstrates full-stack competence across **three highly demanded domains**: Distributed Systems, Applied AI, and Advanced Frontend Engineering.
+
+*   **Applied AI & RAG from Scratch:** Instead of just sending a prompt to the OpenAI API, this project implements a complete **Retrieval-Augmented Generation (RAG)** pipeline locally. It creates local embeddings (MiniLM), stores them in a Vector DB (ChromaDB), and uses a **ReAct Agent** (LangGraph) that autonomously decides when to search the codebase.
+*   **Microservices Architecture:** It orchestrates three distinct services (Java/Spring Boot, Python/FastAPI, React/TypeScript) communicating via REST and Server-Sent Events (SSE). 
+*   **Advanced Parsing & Graph Theory:** It proves strong computer science fundamentals by parsing raw source code into Abstract Syntax Trees (ASTs), calculating dependency edges, and rendering complex Directed Acyclic Graphs (DAGs) on the frontend.
+*   **Concurrency & Back-pressure:** The Java backend handles heavy Git cloning and parsing asynchronously using a bounded thread pool with a `CallerRunsPolicy` to prevent OutOfMemory errors under load—a true production-grade design pattern.
+*   **Modern Security:** Implements stateless JWT authentication with Google OAuth2 through Spring Security, avoiding the pitfalls of storing passwords and securing the app against CSRF attacks.
+*   **Real-time Streaming:** Uses Server-Sent Events (SSE) to stream LLM tokens from Python, through Java, and into the browser natively.
+
+---
+
 ## 1. What is this project, in one breath?
 
 You give it a GitHub link. It downloads the code, reads it, draws a map of how the code's pieces
