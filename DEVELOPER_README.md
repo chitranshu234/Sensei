@@ -38,7 +38,7 @@ Keeping them separate means each can be built, scaled, and reasoned about on its
 1. The browser loads the React app. `AuthGate` checks: is there a saved token?
 2. If yes, it calls `GET /api/auth/me` to ask the backend "is this token still good?" If the backend
    says yes, you're in. If not, you're sent to the login screen.
-3. You register or log in. The backend checks your password (hashed with BCrypt), and hands back a
+3. You click "Sign in with Google". The backend handles the OAuth2 flow with Google, creates an account on the fly, and hands back a
    **JWT** — a signed token that proves who you are. The frontend saves it in `localStorage`.
 4. From now on, every request the frontend makes includes a header: `Authorization: Bearer <token>`.
 
@@ -88,8 +88,7 @@ WebSockets because the data only flows one direction (server → browser).
 
 ## 4. How authentication works (the security story)
 
-- **Passwords** are never stored as text. They're hashed with **BCrypt** — a deliberately *slow*,
-  salted hash. Slow is good here: it makes brute-forcing stolen hashes expensive.
+- **OAuth2 Login**: We use Google OAuth2 instead of storing passwords. The backend creates a user record using the Google email, so no passwords are ever stored or hashed locally.
 - **JWT (JSON Web Token)** = a signed statement of "who you are." It has three parts
   (header.payload.signature). The payload says your username, role, etc. The **signature** is made
   with a secret only the server knows, so nobody can forge or tamper with it. Anyone can *read* a JWT
@@ -105,8 +104,7 @@ WebSockets because the data only flows one direction (server → browser).
 - **CSRF is disabled on purpose**: CSRF attacks abuse cookies the browser sends automatically. We
   don't use cookies for auth — we use an explicit header a cross-site form can't set — so there's
   nothing to attack. (If we'd used cookie auth, we'd need CSRF protection back on.)
-- **First user = admin**: a bootstrap convenience so a fresh install has an administrator without
-  hand-editing the database.
+- **First user = admin**: The first Google account to log in automatically becomes the administrator.
 
 ---
 
@@ -152,7 +150,7 @@ REPOSITORY, ENTITY, COMPONENT, CONFIGURATION, FUNCTION, METHOD.
 - `security/UserDetailsServiceImpl.java` — bridges our `users` table to Spring Security's `UserDetails`.
 
 **Controllers (REST endpoints)**
-- `controller/AuthController.java` — `/api/auth/register`, `/login`, `/me`.
+- `controller/AuthController.java` — `/api/auth/me` (OAuth handles login via Security filters).
 - `controller/RepositoryController.java` — submit/list/get/delete repositories.
 - `controller/ArchitectureController.java` — architecture graph, Spring-layer graph, raw
   entities/relationships.
@@ -243,10 +241,7 @@ REPOSITORY, ENTITY, COMPONENT, CONFIGURATION, FUNCTION, METHOD.
 ### Spring Security & JWT
 
 **Q: Walk me through what happens on a login request.**
-A: `POST /api/auth/login` → `AuthController` → `AuthService.login`. It calls the
-`AuthenticationManager`, which uses the `DaoAuthenticationProvider` + `UserDetailsServiceImpl` to load
-the user and BCrypt-compare the password. On success it updates `lastLoginAt` and `JwtService` mints a
-signed JWT. The token goes back to the browser, which stores it and sends it on every later request.
+A: The user clicks login, triggering `/oauth2/authorization/google`. Spring Security redirects to Google. After the user approves, Google redirects back to `/login/oauth2/code/google`. Spring's `OAuth2SuccessHandler` intercepts this, loads the user's email, creates a `UserEntity` if one doesn't exist, and mints a signed JWT. This JWT is appended to a frontend redirect URL. The frontend extracts and stores the JWT, sending it on every later request.
 
 **Q: Why JWT instead of server sessions?**
 A: Statelessness. With sessions, the server stores session state and all requests from a user must hit
@@ -264,15 +259,8 @@ A: Not here. CSRF exploits credentials the browser attaches automatically — co
 with an explicit `Authorization` header that a malicious cross-site page cannot set, so the CSRF attack
 surface doesn't exist. If we switched to cookie-based auth, we'd re-enable CSRF.
 
-**Q: Why BCrypt and not SHA-256?**
-A: SHA-256 is fast — great for integrity, terrible for passwords, because fast means an attacker can
-try billions of guesses per second against a stolen hash. BCrypt is deliberately slow and salted per
-hash, so identical passwords get different hashes and brute force is expensive.
-
-**Q: How do you avoid username enumeration?**
-A: Login returns the same "Invalid username or password" message whether the user doesn't exist or the
-password is wrong, and the provider hides "user not found" exceptions. An attacker can't tell which
-usernames are real.
+**Q: Why use Google OAuth instead of storing passwords?**
+A: It shifts the burden of credential security, MFA, and account recovery to Google. We never store passwords or hashes, completely eliminating the risk of a database password leak.
 
 **Q: What does `JwtAuthenticationFilter` do, and why does it extend `OncePerRequestFilter`?**
 A: It reads the bearer token and, if valid, sets the authentication in the `SecurityContext`.

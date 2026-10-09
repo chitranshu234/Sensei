@@ -11,8 +11,7 @@ with clickable `file:line` citations.
 
 ## ✨ Features
 
-- **🔐 Authentication** — JWT-based sign-in / registration. The first account created becomes the
-  workspace administrator.
+- **🔐 Authentication** — Secure Google OAuth2 login and JWT-based sessions.
 - **🗺️ Interactive architecture graph** — a layered dependency graph (Controllers → Services →
   Repositories → Entities) rendered with React Flow, with a dedicated "Spring Layers" view, search,
   filtering, and a node inspector that shows who injects/calls what.
@@ -62,7 +61,7 @@ Three cooperating services:
 | Layer | Technology |
 |-------|------------|
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS v4, Zustand, React Flow (`@xyflow/react`), dagre |
-| Backend | Spring Boot 3.3.5, Java 21, Spring Security + JWT (jjwt), Spring Data JPA, WebFlux (`WebClient`), JavaParser, JGit |
+| Backend | Spring Boot 3.3.5, Java 21, Spring Security OAuth2 + JWT (jjwt), Spring Data JPA, WebFlux (`WebClient`), JavaParser, JGit |
 | Database | H2 (file-based, default) or PostgreSQL (profile) |
 | AI service | Python 3.10+, FastAPI, LangChain, LangGraph, ChromaDB |
 | LLM | **Groq** (default: Llama 3.3 70B, with automatic fallback chain) or **Google Gemini** |
@@ -88,12 +87,11 @@ mvn spring-boot:run
 ```
 
 - API on <http://localhost:8080>, H2 console (dev only) on <http://localhost:8080/h2-console>.
-- **Set a real JWT secret** in any non-local environment (minimum 32 bytes):
+- **Create a `.env` file** in `backend/` with your Google OAuth credentials:
 
-```bash
-# PowerShell
-$env:APP_JWT_SECRET = "a-long-random-secret-of-at-least-32-bytes"
-mvn spring-boot:run
+```env
+GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your_client_secret
 ```
 
 ### 2. AI service — FastAPI (`:8000`)
@@ -132,7 +130,7 @@ npm run dev
 ```
 
 Open <http://localhost:5173>. Vite proxies `/api/*` to the backend on `:8080`, so you only need one
-URL in the browser. Create an account on first launch (the first user is the admin).
+URL in the browser. Sign in using your Google account to get started.
 
 ---
 
@@ -142,7 +140,7 @@ URL in the browser. Create an account on first launch (the first user is the adm
 
 | Setting / env var | Default | Purpose |
 |-------------------|---------|---------|
-| `APP_JWT_SECRET` | `change-me-…` (dev only) | HMAC signing key for JWTs — **override in production** (≥ 32 bytes) |
+| `GOOGLE_CLIENT_ID` / `SECRET` | — | Google OAuth2 credentials (via `.env`) |
 | `app.security.jwt.expiration-minutes` | `120` | Token lifetime |
 | `app.security.allowed-origins` | `http://localhost:5173,…` | CORS allow-list |
 | `app.security.h2-console-enabled` | `true` | Toggle the raw H2 SQL console — **set `false` in production** |
@@ -188,8 +186,8 @@ URL in the browser. Create an account on first launch (the first user is the adm
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/api/auth/register` | public | Create an account, returns a JWT |
-| POST | `/api/auth/login` | public | Sign in, returns a JWT |
+| GET | `/oauth2/authorization/google` | public | Google OAuth2 login redirect |
+| GET | `/login/oauth2/code/google` | public | Google OAuth2 callback |
 | GET | `/api/auth/me` | 🔒 | Current user's profile |
 | GET | `/api/health` | public | Liveness probe |
 | POST | `/api/repositories` | 🔒 | Submit a GitHub URL for analysis |
