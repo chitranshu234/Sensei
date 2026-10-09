@@ -328,16 +328,16 @@ export const RepositoryPage = () => {
           </div>
         )}
 
-        {activeTab === 'chat' && !loadingData && (
-          <div className={`flex-1 w-full flex flex-col ${PANEL_HEIGHT}`}>
+        <div className={`flex-1 w-full flex-col ${PANEL_HEIGHT} ${activeTab === 'chat' && !loadingData ? 'flex' : 'hidden'}`}>
+          {!loadingData && (
             <ChatPanel
               repoId={repoId}
               onCitationClick={handleCitationClick}
               presetPrompt={chatPresetPrompt}
               onClearPresetPrompt={() => setChatPresetPrompt(undefined)}
             />
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* ── Onboarding modal ── */}
