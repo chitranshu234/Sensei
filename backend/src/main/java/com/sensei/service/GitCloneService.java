@@ -54,18 +54,88 @@ public class GitCloneService {
         Path targetDir = root.resolve(repoName + "-" + UUID.randomUUID().toString().substring(0, 8));
         log.info("Cloning {} (branch: {}) into {}", normalizedUrl, resolvedBranch, targetDir);
 
-        try (Git git = Git.cloneRepository()
-                .setURI(normalizedUrl + ".git")
-                .setDirectory(targetDir.toFile())
-                .setBranch(resolvedBranch)
-                .setDepth(1)              // shallow: we only need a snapshot to analyse
-                .setCloneAllBranches(false)
-                .call()) {
-            log.info("Clone complete: {}", targetDir);
-        } catch (GitAPIException e) {
-            // Leave nothing half-written behind for the analyser to trip over.
-            safeDelete(targetDir);
-            throw e;
+        try {
+            try (Git git = Git.cloneRepository()
+                    .setURI(normalizedUrl + ".git")
+                    .setDirectory(targetDir.toFile())
+                    .setBranch(resolvedBranch)
+                    .setDepth(1)              // shallow: we only need a snapshot to analyse
+                    .setCloneAllBranches(false)
+                    .call()) {
+                log.info("Clone complete: {}", targetDir);
+            }
+        } catch (Exception e) {
+            boolean isInvalidPath = e.getClass().getSimpleName().contains("InvalidPathException") ||
+                                    (e.getCause() != null && e.getCause().getClass().getSimpleName().contains("InvalidPathException")) ||
+                                    (e.getCause() != null && e.getCause().getClass().getSimpleName().contains("CorruptObjectException")) ||
+                                    (e.getMessage() != null && e.getMessage().contains("Invalid path")) ||
+                                    e.getClass().getSimpleName().contains("JGitInternalException");
+
+
+            if (isInvalidPath) {
+                log.warn("Invalid paths detected during checkout (e.g. Windows unsupported characters). Falling back to manual checkout: {}", e.getMessage());
+                safeDelete(targetDir);
+                
+                Path fallbackDir = root.resolve(repoName + "-fallback-" + UUID.randomUUID().toString().substring(0, 8));
+                
+                try (Git git = Git.cloneRepository()
+                        .setURI(normalizedUrl + ".git")
+                        .setDirectory(fallbackDir.toFile())
+                        .setBranch(resolvedBranch)
+                        .setDepth(1)
+                        .setCloneAllBranches(false)
+                        .setNoCheckout(true)
+                        .call()) {
+                        
+                    org.eclipse.jgit.lib.Repository repo = git.getRepository();
+                    org.eclipse.jgit.lib.Ref headRef = repo.exactRef("HEAD");
+                    if (headRef != null && headRef.getObjectId() != null) {
+                        try (org.eclipse.jgit.revwalk.RevWalk revWalk = new org.eclipse.jgit.revwalk.RevWalk(repo);
+                             org.eclipse.jgit.treewalk.TreeWalk treeWalk = new org.eclipse.jgit.treewalk.TreeWalk(repo)) {
+                            
+                            org.eclipse.jgit.revwalk.RevCommit commit = revWalk.parseCommit(headRef.getObjectId());
+                            treeWalk.addTree(commit.getTree());
+                            treeWalk.setRecursive(true);
+                            
+                            while (treeWalk.next()) {
+                                String path = treeWalk.getPathString();
+                                // Skip files with invalid Windows characters
+                                if (path.matches(".*[:*?\"<>|].*")) {
+                                    continue;
+                                }
+                                
+                                // Skip submodules (GitLinks) as they point to commits, not blobs
+                                if (treeWalk.getFileMode(0).equals(org.eclipse.jgit.lib.FileMode.GITLINK)) {
+                                    continue;
+                                }
+
+                                File file = new File(fallbackDir.toFile(), path);
+                                File parent = file.getParentFile();
+                                if (parent != null && !parent.exists()) {
+                                    parent.mkdirs();
+                                }
+                                
+                                org.eclipse.jgit.lib.ObjectId objectId = treeWalk.getObjectId(0);
+                                org.eclipse.jgit.lib.ObjectLoader loader = repo.open(objectId);
+                                try (java.io.FileOutputStream fos = new java.io.FileOutputStream(file)) {
+                                    loader.copyTo(fos);
+                                }
+                            }
+                        }
+                    }
+                    log.info("Manual fallback clone complete: {}", fallbackDir);
+                    return fallbackDir.toString();
+                } catch (Exception ex) {
+                    safeDelete(fallbackDir);
+                    if (ex instanceof GitAPIException) throw (GitAPIException) ex;
+                    throw new RuntimeException("Fallback clone failed", ex);
+                }
+            } else {
+                safeDelete(targetDir);
+                if (e instanceof GitAPIException) throw (GitAPIException) e;
+                if (e instanceof IOException) throw (IOException) e;
+                throw new RuntimeException(e);
+            }
         }
 
         return targetDir.toString();

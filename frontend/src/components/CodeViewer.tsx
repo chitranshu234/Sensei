@@ -11,6 +11,10 @@ interface Props {
 }
 
 const langMap: Record<string, string> = {
+  c: 'c',
+  h: 'c',
+  cpp: 'cpp',
+  hpp: 'cpp',
   java: 'java',
   py: 'python',
   ts: 'typescript',
