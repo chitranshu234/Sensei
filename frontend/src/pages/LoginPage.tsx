@@ -55,8 +55,8 @@ export const LoginPage = () => {
             Read any repository like a drawing.
           </h1>
           <p className="mt-5 text-ink-500 leading-relaxed">
-            Point Sensei at a GitHub repository and it clones, parses the AST, maps the Spring
-            layers, and answers questions grounded in the source — with citations you can click
+            Point Sensei at a GitHub repository and it clones, parses the AST, maps the software
+            architecture, and answers questions grounded in the source — with citations you can click
             straight into the code.
           </p>
 
