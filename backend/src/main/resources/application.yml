@@ -30,7 +30,7 @@ spring:
       client:
         registration:
           google:
-            client-id: ${GOOGLE_CLIENT_ID:739053296593-glf4efhk8m96qqtlvjise6a3eqp7p0gj.apps.googleusercontent.com}
+            client-id: ${GOOGLE_CLIENT_ID}
             client-secret: ${GOOGLE_CLIENT_SECRET}
             scope: email, profile
 

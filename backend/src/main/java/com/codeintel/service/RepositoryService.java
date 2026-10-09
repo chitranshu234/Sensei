@@ -6,8 +6,11 @@ import com.codeintel.exception.BadRequestException;
 import com.codeintel.exception.ResourceNotFoundException;
 import com.codeintel.model.RepoStatus;
 import com.codeintel.repository.RepositoryRepo;
+import com.codeintel.entity.UserEntity;
+import com.codeintel.repository.UserRepo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,15 +34,24 @@ public class RepositoryService {
     private final IngestionService ingestionService;
     private final IngestionPersistence persistence;
     private final GitCloneService gitCloneService;
+    private final UserRepo userRepo;
 
     public RepositoryService(RepositoryRepo repositoryRepo,
                              IngestionService ingestionService,
                              IngestionPersistence persistence,
-                             GitCloneService gitCloneService) {
+                             GitCloneService gitCloneService,
+                             UserRepo userRepo) {
         this.repositoryRepo = repositoryRepo;
         this.ingestionService = ingestionService;
         this.persistence = persistence;
         this.gitCloneService = gitCloneService;
+        this.userRepo = userRepo;
+    }
+
+    private UserEntity getCurrentUser() {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepo.findByUsername(username)
+                .orElseThrow(() -> new IllegalStateException("Current user not found"));
     }
 
     /**
@@ -53,7 +65,7 @@ public class RepositoryService {
         String normalizedUrl = normalizeUrl(githubUrl);
         String requestedBranch = blankToNull(branch);
 
-        return repositoryRepo.findByGithubUrl(normalizedUrl)
+        return repositoryRepo.findByGithubUrlAndUser(normalizedUrl, getCurrentUser())
                 .map(existing -> resubmitIfFailed(existing, requestedBranch))
                 .orElseGet(() -> createAndStart(normalizedUrl, requestedBranch));
     }
@@ -81,6 +93,7 @@ public class RepositoryService {
         repo.setGithubUrl(githubUrl);
         repo.setDefaultBranch(branch);
         repo.setStatus(RepoStatus.QUEUED);
+        repo.setUser(getCurrentUser());
         RepositoryEntity saved = repositoryRepo.save(repo);
 
         log.info("Queued repository {} (id {})", saved.getName(), saved.getId());
@@ -90,14 +103,13 @@ public class RepositoryService {
 
     /** All repositories, newest first — the order the dashboard expects. */
     public List<RepositoryResponse> getAllRepositories() {
-        return repositoryRepo.findAll().stream()
-                .sorted(Comparator.comparing(RepositoryEntity::getId).reversed())
+        return repositoryRepo.findByUserOrderByIdDesc(getCurrentUser()).stream()
                 .map(RepositoryResponse::from)
                 .toList();
     }
 
     public RepositoryResponse getRepository(Long id) {
-        return repositoryRepo.findById(id)
+        return repositoryRepo.findByIdAndUser(id, getCurrentUser())
                 .map(RepositoryResponse::from)
                 .orElseThrow(() -> ResourceNotFoundException.repository(id));
     }
@@ -110,7 +122,7 @@ public class RepositoryService {
      */
     @Transactional
     public void deleteRepository(Long id) {
-        RepositoryEntity repo = repositoryRepo.findById(id)
+        RepositoryEntity repo = repositoryRepo.findByIdAndUser(id, getCurrentUser())
                 .orElseThrow(() -> ResourceNotFoundException.repository(id));
 
         String clonePath = repo.getClonePath();
