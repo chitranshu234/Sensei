@@ -12,6 +12,13 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
+import com.sensei.entity.UserEntity;
+import com.sensei.repository.UserRepo;
+import com.sensei.exception.BadRequestException;
+import com.sensei.model.Role;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.context.SecurityContextHolder;
+
 /**
  * Streaming chat + onboarding endpoints.
  *
@@ -29,14 +36,37 @@ import java.util.Map;
 public class ChatController {
 
     private final AiServiceClient aiServiceClient;
+    private final UserRepo userRepo;
+    private final boolean demoMode;
 
-    public ChatController(AiServiceClient aiServiceClient) {
+    public ChatController(AiServiceClient aiServiceClient, 
+                          UserRepo userRepo,
+                          @Value("${app.demo-mode:false}") boolean demoMode) {
         this.aiServiceClient = aiServiceClient;
+        this.userRepo = userRepo;
+        this.demoMode = demoMode;
+    }
+
+    private UserEntity getCurrentUser() {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepo.findByUsername(username)
+                .orElseThrow(() -> new IllegalStateException("Current user not found"));
     }
 
     @PostMapping(value = "/chat", produces = "text/plain;charset=UTF-8")
     public ResponseBodyEmitter chat(@PathVariable Long repoId,
                                     @Valid @RequestBody ChatRequest request) {
+        if (demoMode) {
+            UserEntity user = getCurrentUser();
+            if (user.getRole() == Role.USER) {
+                if (user.getAiMessageCount() >= 10) {
+                    throw new BadRequestException("Demo limit reached: You have asked the maximum of 10 AI questions allowed in this live preview. Please run the project locally for unlimited access!");
+                }
+                user.setAiMessageCount(user.getAiMessageCount() + 1);
+                userRepo.save(user);
+            }
+        }
+
         // Timeout matches spring.mvc.async.request-timeout so long answers aren't cut off.
         ResponseBodyEmitter emitter = new ResponseBodyEmitter(300_000L);
         MediaType utf8Text = new MediaType("text", "plain", StandardCharsets.UTF_8);

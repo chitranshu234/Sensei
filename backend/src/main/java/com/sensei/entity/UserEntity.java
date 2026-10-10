@@ -38,6 +38,9 @@ public class UserEntity {
     private LocalDateTime createdAt;
 
     private LocalDateTime lastLoginAt;
+    
+    @Column(nullable = false)
+    private int aiMessageCount = 0;
 
     @PrePersist
     protected void onCreate() {
@@ -66,4 +69,7 @@ public class UserEntity {
 
     public LocalDateTime getLastLoginAt() { return lastLoginAt; }
     public void setLastLoginAt(LocalDateTime lastLoginAt) { this.lastLoginAt = lastLoginAt; }
+    
+    public int getAiMessageCount() { return aiMessageCount; }
+    public void setAiMessageCount(int aiMessageCount) { this.aiMessageCount = aiMessageCount; }
 }

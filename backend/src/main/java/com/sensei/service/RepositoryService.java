@@ -11,7 +11,9 @@ import com.sensei.repository.UserRepo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -64,6 +66,12 @@ public class RepositoryService {
      * is reset and retried.
      */
     public RepositoryResponse submitRepository(String githubUrl, String branch) {
+        if ("true".equals(System.getenv("DEMO_MODE"))) {
+            UserEntity user = getCurrentUser();
+            if (user.getRole() != com.sensei.model.Role.ADMIN) {
+                throw new BadRequestException("Repository ingestion is restricted in the live demo to prevent abuse. Please interact with the pre-indexed demo repositories or run the project locally.");
+            }
+        }
         String normalizedUrl = normalizeUrl(githubUrl);
         String requestedBranch = blankToNull(branch);
 
