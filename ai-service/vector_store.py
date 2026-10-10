@@ -100,10 +100,31 @@ class VectorStoreService:
         except Exception:
             pass
 
+        import time
         store = self.get_store(repo_id)
-        store.add_texts(texts=texts, metadatas=metadatas, ids=ids)
+        
+        # Batch to avoid Google Gemini 429 Rate Limits
+        batch_size = 50
+        for i in range(0, len(texts), batch_size):
+            batch_texts = texts[i : i + batch_size]
+            batch_metas = metadatas[i : i + batch_size]
+            batch_ids = ids[i : i + batch_size]
+            
+            try:
+                store.add_texts(texts=batch_texts, metadatas=batch_metas, ids=batch_ids)
+                logger.info(f"Indexed batch {i//batch_size + 1} for repo {repo_id}")
+            except Exception as e:
+                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                    logger.warning("Hit Google API rate limit! Sleeping for 15 seconds...")
+                    time.sleep(15)
+                    store.add_texts(texts=batch_texts, metadatas=batch_metas, ids=batch_ids)
+                else:
+                    raise e
+            
+            # Tiny sleep between batches to prevent spamming the API
+            time.sleep(1.5)
 
-        logger.info("Indexed %d chunks for repo %d", len(texts), repo_id)
+        logger.info("Successfully indexed %d chunks for repo %d", len(texts), repo_id)
         return len(texts)
 
     def search(self, repo_id: int, query: str, k: int = 6) -> list[dict]:
