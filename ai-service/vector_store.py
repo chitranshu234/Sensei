@@ -1,7 +1,10 @@
 """
 Vector store service using ChromaDB for code chunk storage and retrieval.
 """
+import hashlib
 import logging
+import math
+import re
 import time
 from typing import Optional
 
@@ -54,6 +57,52 @@ class OnnxMiniLMEmbeddings(Embeddings):
         return self.embed_documents([text])[0]
 
 
+class LexicalHashEmbeddings(Embeddings):
+    """Dependency-free embeddings for memory-constrained deployments.
+
+    The vectors preserve matches between identifiers, filenames, and natural-language tokens
+    without loading a model or making a network call. This is intentionally a deployment
+    fallback: semantic retrieval is less capable than MiniLM or Gemini, but indexing remains
+    available on small Render instances.
+    """
+
+    _DIMENSIONS = 384
+    _TOKEN_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*|\d+")
+
+    @classmethod
+    def _tokens(cls, text: str) -> list[str]:
+        tokens: list[str] = []
+        for token in cls._TOKEN_PATTERN.findall(text):
+            tokens.append(token.lower())
+            # Keep the full identifier and also make camelCase/snake_case components searchable.
+            expanded = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", token)
+            for part in re.split(r"[_\s]+", expanded):
+                normalized = part.lower()
+                if normalized and normalized != token.lower():
+                    tokens.append(normalized)
+        return tokens
+
+    @classmethod
+    def _embed(cls, text: str) -> list[float]:
+        vector = [0.0] * cls._DIMENSIONS
+        for token in cls._tokens(text):
+            digest = hashlib.blake2b(token.encode("utf-8"), digest_size=8).digest()
+            hashed = int.from_bytes(digest, byteorder="big")
+            index = hashed % cls._DIMENSIONS
+            vector[index] += 1.0 if (hashed >> 63) == 0 else -1.0
+
+        magnitude = math.sqrt(sum(value * value for value in vector))
+        if magnitude:
+            return [value / magnitude for value in vector]
+        return vector
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [self._embed(text) for text in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._embed(text)
+
+
 class VectorStoreService:
     """Manages per-repository ChromaDB collections for code chunk embeddings."""
 
@@ -91,9 +140,13 @@ class VectorStoreService:
             elif settings.embedding_provider == "onnx":
                 logger.info("Loading Chroma ONNX MiniLM embeddings on CPU")
                 self._embeddings = OnnxMiniLMEmbeddings()
+            elif settings.embedding_provider == "lexical":
+                logger.info("Loading zero-model lexical hash embeddings")
+                self._embeddings = LexicalHashEmbeddings()
             else:
                 raise RuntimeError(
-                    "Unsupported EMBEDDING_PROVIDER=%r. Use 'local', 'onnx', or 'google'."
+                    "Unsupported EMBEDDING_PROVIDER=%r. Use 'local', 'lexical', 'onnx', or "
+                    "'google'."
                     % settings.embedding_provider
                 )
         return self._embeddings
@@ -108,11 +161,11 @@ class VectorStoreService:
         return self._chroma_client
 
     def _collection_name(self, repo_id: int) -> str:
-        # ONNX vectors have a different dimension from Gemini vectors. A separate namespace
-        # makes an existing Google index look absent, allowing the backend's normal recovery path
-        # to rebuild it safely with ONNX after the deployment setting changes.
-        if settings.embedding_provider == "onnx":
-            return f"repo_{repo_id}_onnx"
+        # Fallback vectors may have a different dimension from Gemini vectors. A separate
+        # namespace makes an existing index look absent, allowing the backend's normal recovery
+        # path to rebuild it safely after the deployment setting changes.
+        if settings.embedding_provider in {"onnx", "lexical"}:
+            return f"repo_{repo_id}_{settings.embedding_provider}"
         return f"repo_{repo_id}"
 
     def get_store(self, repo_id: int) -> Chroma:
@@ -250,9 +303,12 @@ class VectorStoreService:
     def delete_repo(self, repo_id: int):
         """Delete all indexed data for a repository."""
         collection_names = {self._collection_name(repo_id)}
-        if settings.embedding_provider == "onnx":
-            # Clear a legacy Google collection too when a repository is explicitly deleted.
+        if settings.embedding_provider in {"onnx", "lexical"}:
+            # Clear the legacy Google collection too when a repository is explicitly deleted.
             collection_names.add(f"repo_{repo_id}")
+        if settings.embedding_provider == "lexical":
+            # An ONNX deployment may have already created this fallback namespace.
+            collection_names.add(f"repo_{repo_id}_onnx")
 
         deleted = False
         for collection_name in collection_names:
