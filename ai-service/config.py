@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     llm_provider: str = os.getenv("LLM_PROVIDER", "groq")  # "groq" or "google"
     llm_model: str = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
     llm_fallback_models: str = os.getenv(
-        "LLM_FALLBACK_MODELS", "llama-3.1-8b-instant,mixtral-8x7b-32768,gemma2-9b-it"
+        "LLM_FALLBACK_MODELS", "llama-3.1-8b-instant,llama3-8b-8192,gemma2-9b-it"
     )
     llm_temperature: float = float(os.getenv("LLM_TEMPERATURE", "0.2"))
     llm_max_tokens: int = int(os.getenv("LLM_MAX_TOKENS", "4096"))
