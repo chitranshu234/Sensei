@@ -48,13 +48,13 @@ public class ArchitectureController {
     @GetMapping("/entities")
     public ResponseEntity<List<CodeEntity>> getEntities(@PathVariable Long repoId) {
         requireRepository(repoId);
-        return ResponseEntity.ok(codeEntityRepo.findByRepoId(repoId));
+        return ResponseEntity.ok(codeEntityRepo.findByRepoIdOrderByIdAsc(repoId));
     }
 
     @GetMapping("/relationships")
     public ResponseEntity<List<CodeRelationshipEntity>> getRelationships(@PathVariable Long repoId) {
         requireRepository(repoId);
-        return ResponseEntity.ok(codeRelationshipRepo.findByRepoId(repoId));
+        return ResponseEntity.ok(codeRelationshipRepo.findByRepoIdOrderByIdAsc(repoId));
     }
 
     private void requireRepository(Long repoId) {
