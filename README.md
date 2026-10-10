@@ -1,269 +1,315 @@
-# Sensei — AI Codebase Intelligence & Onboarding
+# Sensei
 
-Sensei turns any public GitHub repository into something you can *read like a drawing*. Point it at a
-repo and it clones the code, parses the Abstract Syntax Tree (Java) or extracts structure (TS/JS, Python, C/C++), maps the layers into an
-interactive architecture graph, and answers questions about the code — grounded in the actual source,
-with clickable `file:line` citations.
+Sensei is an AI-assisted codebase intelligence platform for exploring unfamiliar public GitHub repositories. It clones a repository, extracts source-level structure, persists the resulting code model, renders architecture views, and supports source-grounded chat and onboarding guidance.
 
-> Built by **Chitranshu Pandey** · Spring Boot · FastAPI · React
+The application is organized as three collaborating services:
 
----
+| Service | Technology | Default port | Responsibility |
+|---|---|---:|---|
+| Frontend | React, TypeScript, Vite | 5173 | Repository workspace, architecture graph, code explorer, and streamed chat UI |
+| Backend | Java 21, Spring Boot | 8080 | Authentication, repository lifecycle, cloning, analysis, persistence, REST API, and stream relay |
+| AI service | Python, FastAPI, LangChain, ChromaDB | 8000 | Embeddings, vector indexing, retrieval, chat, agent chat, and onboarding generation |
 
-## ✨ Features
+## Capabilities
 
-- **🔐 Authentication** — Secure Google OAuth2 login and JWT-based sessions.
-- **🗺️ Interactive architecture graph** — a layered dependency graph (Controllers → Services →
-  Repositories → Entities for Java; intuitive path-based layers for TS, Python, C/C++) rendered with React Flow, with a dedicated "Spring Layers" view, search,
-  filtering, and a node inspector that shows who injects/calls what.
-- **📂 AST-aware code explorer** — browse the parsed file tree and read any file with syntax
-  highlighting and citation line-highlighting.
-- **🤖 Source-grounded AI chat** — ask questions and get streaming answers retrieved from the
-  repository's own code (RAG), with citations you can click straight into the code viewer.
-- **📖 Onboarding guide generator** — one click produces a developer onboarding walkthrough of the
-  repository.
-- **📱 Responsive** — a hand-built "drafting sheet" design system that works on phone, tablet, and
-  desktop.
+- Submit a public GitHub repository and process it asynchronously.
+- Build architecture graphs from code entities and their relationships.
+- Parse Java with JavaParser AST analysis, including Spring stereotypes, injection, inheritance, method calls, and imports.
+- Extract structural information from TypeScript, JavaScript, JSX, Python, C, and C++ source files.
+- Browse indexed files and source code with path-traversal protections on file reads.
+- Search persisted code chunks by keyword.
+- Ask source-grounded questions with streamed responses and file/line citations.
+- Generate repository onboarding guides and provide an optional tool-using agent chat mode.
+- Restore a missing Chroma vector index from persisted code chunks after a service restart or an ephemeral-disk deployment.
 
----
+## Architecture
 
-## 🏗️ Architecture at a glance
-
+```text
+Browser
+  |
+  | React workspace, REST requests, streamed chat
+  v
+Frontend (Vite :5173)
+  |
+  | /api proxy
+  v
+Spring Boot backend (:8080)
+  |-- Google OAuth2, JWT authentication, local login and registration
+  |-- Repository lifecycle and asynchronous ingestion
+  |-- H2 or PostgreSQL persistence
+  |-- JGit clone and source analysis
+  |
+  | HTTP
+  v
+FastAPI AI service (:8000)
+  |-- Local MiniLM or Google embeddings
+  |-- Per-repository Chroma collections
+  |-- Retrieval-augmented chat, agent chat, onboarding
+  v
+ChromaDB
 ```
-                        USER (browser)
-                           │
-                           ▼
-                React Frontend  (Vite · :5173)
-                           │   REST + JWT  /  SSE stream
-                           ▼
-             Spring Boot Backend  (:8080)
-                           │
-        ┌──────────────────┼───────────────────┐
-        ▼                  ▼                   ▼
-  H2 / PostgreSQL     GitHub (JGit clone)   Python AI Service (:8000)
-                                                 │
-                                   ┌─────────────┼──────────────┐
-                                   ▼             ▼              ▼
-                               ChromaDB   MiniLM embeddings   Groq / Gemini LLM
+
+### Repository ingestion lifecycle
+
+Repository processing moves through the following states:
+
+```text
+QUEUED -> CLONING -> PARSING -> INDEXING -> READY
+                                      |
+                                      v
+                                    FAILED
 ```
 
-Three cooperating services:
+1. The backend validates a public GitHub HTTPS URL and queues ingestion on a bounded background executor.
+2. JGit shallow-clones the selected branch into the managed repository storage directory.
+3. The backend walks supported source files while skipping dependency, build, cache, VCS, and generated-output directories.
+4. Language analyzers produce files, entities, relationships, and source chunks. Java analysis is AST-based; the non-Java analyzers extract supported patterns from source text.
+5. The backend saves the analysis model to H2 or PostgreSQL.
+6. Chunks are sent to the AI service, embedded in batches, and stored in a Chroma collection scoped to the repository ID.
+7. The workspace polls the repository status and enables architecture, code, and chat features when processing reaches `READY`.
 
-| Service | Port | Responsibility |
-|---------|------|----------------|
-| **Frontend** (React) | 5173 | UI, auth, architecture graph, code viewer, chat |
-| **Backend** (Spring Boot) | 8080 | Auth, repo lifecycle, Git clone, AST parsing, graph building, REST API, SSE relay |
-| **AI service** (FastAPI) | 8000 | Embeddings, ChromaDB vector store, RAG + agent chat, onboarding generation |
+The relational database is the durable source of truth for code chunks. ChromaDB is treated as a rebuildable retrieval cache: before chat, the backend checks the collection status and reconstructs a missing index under a per-repository lock.
 
----
+## Source analysis coverage
 
-## 🧰 Tech stack
+| Language | File types | Analysis approach |
+|---|---|---|
+| Java | `.java` | JavaParser AST extraction for types, methods, Spring annotations, imports, injection, inheritance, and calls |
+| TypeScript and JavaScript | `.ts`, `.tsx`, `.js`, `.jsx` | Classes, functions, components, imports, and requires |
+| Python | `.py` | Classes, functions, imports, and from-imports |
+| C and C++ | `.c`, `.cpp`, `.h`, `.hpp` | Structures/classes, functions, and includes |
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | React 19, TypeScript, Vite, Tailwind CSS v4, Zustand, React Flow (`@xyflow/react`), dagre |
-| Backend | Spring Boot 3.3.5, Java 21, Spring Security OAuth2 + JWT (jjwt), Spring Data JPA, WebFlux (`WebClient`), JavaParser, JGit, Regex Analyzers (TS/Python/C) |
-| Database | H2 (file-based, default) or PostgreSQL (profile) |
-| AI service | Python 3.10+, FastAPI, LangChain, LangGraph, ChromaDB |
-| LLM | **Groq** (default: Llama 3.3 70B, with automatic fallback chain) or **Google Gemini** |
-| Embeddings | `sentence-transformers` / `all-MiniLM-L6-v2` (runs locally on CPU) |
+The Spring-layer graph is most useful for Java repositories that use conventional Spring annotations. The full architecture graph is available for every supported language.
 
----
+## Prerequisites
 
-## 🚀 Getting started
+- Java 21 or later
+- Maven 3.9 or later
+- Node.js 18 or later
+- Python 3.10 or later
+- A Groq API key or a Google Gemini API key for chat
+- Google OAuth client credentials if Google sign-in is enabled
 
-### Prerequisites
+## Local setup
 
-- **Java 21+** and **Maven** (backend)
-- **Node.js 18+** (frontend)
-- **Python 3.10+** (AI service)
-- A **Groq API key** (default — get one at <https://console.groq.com>) *or* a **Google Gemini API
-  key** (<https://aistudio.google.com/apikey>)
+Run the services in separate terminals, in the order shown below.
 
-### 1. Backend — Spring Boot (`:8080`)
+### 1. Configure the backend
 
-```bash
+Create `backend/.env` with your Google OAuth credentials:
+
+```env
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+APP_JWT_SECRET=replace-with-a-unique-secret-of-at-least-32-bytes
+```
+
+Start the backend:
+
+```powershell
 cd backend
 mvn spring-boot:run
 ```
 
-- API on <http://localhost:8080>, H2 console (dev only) on <http://localhost:8080/h2-console>.
-- **Create a `.env` file** in `backend/` with your Google OAuth credentials:
+The backend starts on `http://localhost:8080`. Local development uses an H2 file database by default.
 
-```env
-GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your_client_secret
-```
+### 2. Configure and start the AI service
 
-### 2. AI service — FastAPI (`:8000`)
+Create a virtual environment and install dependencies:
 
-```bash
+```powershell
 cd ai-service
 python -m venv .venv
-.venv\Scripts\activate         # Windows  (use: source .venv/bin/activate on macOS/Linux)
-pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Create a `.env` file in `ai-service/`:
+Create `ai-service/.env`. The following configuration is appropriate for a local workspace with a cached MiniLM model:
 
 ```env
 LLM_PROVIDER=groq
-GROQ_API_KEY=your_groq_key_here
-# Optional — only needed if LLM_PROVIDER=google
-GOOGLE_API_KEY=your_gemini_key_here
+GROQ_API_KEY=your-groq-api-key
+
+EMBEDDING_PROVIDER=local
+EMBEDDING_MODEL=all-MiniLM-L6-v2
+EMBEDDING_LOCAL_FILES_ONLY=true
+CHROMA_PERSIST_DIR=./data/chroma
 ```
 
-Then run:
+For a new machine, set `EMBEDDING_LOCAL_FILES_ONLY=false` once while online so that the MiniLM model can download. Set it back to `true` afterwards to keep local indexing independent of Hugging Face metadata requests.
 
-```bash
-python main.py          # serves on http://localhost:8000
+Start the AI service:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
-> The first chat request downloads the local embedding model (`all-MiniLM-L6-v2`), which may take a
-> moment the very first time.
+The first repository indexing request loads the local embedding model.
 
-### 3. Frontend — React (`:5173`)
+### 3. Start the frontend
 
-```bash
+```powershell
 cd frontend
 npm install
 npm run dev
 ```
 
-Open <http://localhost:5173>. Vite proxies `/api/*` to the backend on `:8080`, so you only need one
-URL in the browser. Sign in using your Google account to get started.
+Open `http://localhost:5173`. Vite forwards `/api/*` requests to the backend at port 8080.
 
----
+## Deployment configuration
 
-## 🔑 Configuration
+The local embedding model is convenient for a developer machine but can exceed the memory available on small hosting plans. For a memory-constrained deployment, use Google embeddings instead:
 
-### Backend (`backend/src/main/resources/application.yml`)
+```env
+EMBEDDING_PROVIDER=google
+GOOGLE_API_KEY=your-google-api-key
+GOOGLE_EMBEDDING_MODEL=models/gemini-embedding-001
+```
 
-| Setting / env var | Default | Purpose |
-|-------------------|---------|---------|
-| `GOOGLE_CLIENT_ID` / `SECRET` | — | Google OAuth2 credentials (via `.env`) |
-| `app.security.jwt.expiration-minutes` | `120` | Token lifetime |
-| `app.security.allowed-origins` | `http://localhost:5173,…` | CORS allow-list |
-| `app.security.h2-console-enabled` | `true` | Toggle the raw H2 SQL console — **set `false` in production** |
-| `app.ai-service.base-url` | `http://localhost:8000` | Where the Python AI service lives |
-| `app.storage.repo-dir` | `./storage/repos` | Where repositories are cloned |
+Configure the backend with the AI service URL and a production database as needed:
 
-**PostgreSQL** instead of H2: run with `--spring.profiles.active=postgres` and set `DB_HOST`,
-`DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` (see `application-postgres.yml`).
+```env
+AI_SERVICE_URL=https://your-ai-service.example
+APP_JWT_SECRET=replace-with-a-unique-production-secret
+APP_ALLOWED_ORIGINS=https://your-frontend.example
 
-### AI service (`ai-service/.env`)
+DB_HOST=database-host
+DB_PORT=5432
+DB_NAME=sensei
+DB_USER=sensei
+DB_PASSWORD=replace-with-a-secure-password
+```
+
+Start the backend with the PostgreSQL profile:
+
+```powershell
+cd backend
+mvn spring-boot:run "-Dspring-boot.run.profiles=postgres"
+```
+
+On ephemeral infrastructure, do not rely on the AI service disk for durable data. Persist database records in PostgreSQL; Sensei rebuilds its Chroma cache from stored chunks when required.
+
+## Configuration reference
+
+### Backend
+
+| Variable or setting | Default | Purpose |
+|---|---|---|
+| `AI_SERVICE_URL` | `http://localhost:8000` | Base URL for the FastAPI service |
+| `APP_JWT_SECRET` | Development-only fallback | JWT signing secret; set a unique value in every real environment |
+| `APP_ALLOWED_ORIGINS` | Local Vite origins | Allowed browser origins for CORS |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | — | Google OAuth2 credentials |
+| `app.storage.repo-dir` | `./storage/repos` | Managed clone storage location |
+| `spring.profiles.active` | — | Set to `postgres` to use PostgreSQL instead of H2 |
+
+### AI service
 
 | Variable | Default | Purpose |
-|----------|---------|---------|
-| `LLM_PROVIDER` | `groq` | `groq` or `google` |
-| `GROQ_API_KEY` | — | Required when provider is `groq` |
-| `GOOGLE_API_KEY` | — | Required when provider is `google` |
-| `EMBEDDING_PROVIDER` | `google` | `google` for memory-constrained deployments, or cached `local` MiniLM for offline workspaces |
-| `EMBEDDING_LOCAL_FILES_ONLY` | `true` | Prevent local workspaces from making a Hugging Face metadata request; set `false` once to download MiniLM on a new machine |
-| `LLM_MODEL` | `llama-3.3-70b-versatile` | Primary model |
-| `LLM_FALLBACK_MODELS` | `llama-3.1-8b-instant,…` | Comma-separated fallback chain used on rate limits |
-| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Local embedding model |
-| `CHROMA_PERSIST_DIR` | `./data/chroma` | ChromaDB storage path |
+|---|---|---|
+| `LLM_PROVIDER` | `groq` | Chat provider: `groq` or `google` |
+| `GROQ_API_KEY` | — | Required for the Groq provider |
+| `GOOGLE_API_KEY` | — | Required for Google chat or Google embeddings |
+| `LLM_MODEL` | `llama-3.3-70b-versatile` | Primary chat model |
+| `LLM_FALLBACK_MODELS` | Groq fallback list | Ordered fallback models for rate-limit or availability failures |
+| `EMBEDDING_PROVIDER` | `google` | `local` for MiniLM, `google` for managed embeddings |
+| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Local SentenceTransformer model |
+| `EMBEDDING_LOCAL_FILES_ONLY` | `true` | Keep local MiniLM loading offline after the initial download |
+| `GOOGLE_EMBEDDING_MODEL` | `models/gemini-embedding-001` | Managed embedding model |
+| `CHROMA_PERSIST_DIR` | `./data/chroma` | ChromaDB persistence path |
 
----
+## API overview
 
-## 🔄 How it works
+Unless noted otherwise, backend endpoints require an `Authorization: Bearer <token>` header.
 
-1. **Submit a GitHub URL** → the backend stores a `QUEUED` row and returns immediately; ingestion runs
-   on a background thread pool.
-2. **Clone** (`CLONING`) → a shallow clone via JGit (GitHub HTTPS only).
-3. **Parse** (`PARSING`) → each file is walked and handed to a language analyzer: JavaParser builds a
-   real Java AST (classes, Spring stereotypes, injections, calls, inheritance); regex analyzers
-   handle TS/JS/JSX, Python, and C/C++ structures. Classes, relationships, and code chunks are persisted in one transaction.
-4. **Index** (`INDEXING`) → chunks are sent to the AI service, embedded locally with MiniLM, and
-   stored per-repository in ChromaDB.
-5. **Ready** (`READY`) → the frontend renders the architecture graph and enables code search + chat.
-6. **Ask** → a question is embedded, the most relevant chunks are retrieved, and the LLM streams a
-   grounded answer with `file:line` citations back through the backend to the browser (SSE).
+### Authentication and health
 
----
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| `POST` | `/api/auth/register` | Public | Create a local account |
+| `POST` | `/api/auth/login` | Public | Authenticate a local account and receive a JWT |
+| `GET` | `/api/auth/me` | Authenticated | Retrieve the current user |
+| `GET` | `/oauth2/authorization/google` | Public | Begin Google OAuth2 sign-in |
+| `GET` | `/api/health` | Public | Backend liveness check |
+| `GET` | `/health` | Public | AI service liveness check |
 
-## 🌐 REST API
+### Repository lifecycle and analysis
 
-### Backend (`:8080`)
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/repositories` | Submit a public GitHub repository and optional branch |
+| `GET` | `/api/repositories` | List repositories visible to the current user |
+| `GET` | `/api/repositories/{id}` | Get repository status and summary |
+| `DELETE` | `/api/repositories/{id}` | Remove a repository, its derived data, index, and managed clone |
+| `GET` | `/api/repositories/{repoId}/architecture` | Return the full architecture graph |
+| `GET` | `/api/repositories/{repoId}/architecture/spring-layers` | Return the Spring-layer architecture graph |
+| `GET` | `/api/repositories/{repoId}/entities` | Return extracted code entities |
+| `GET` | `/api/repositories/{repoId}/relationships` | Return extracted relationships |
+| `GET` | `/api/repositories/{repoId}/files` | Return indexed files |
+| `GET` | `/api/repositories/{repoId}/files/content?filePath=...` | Read a source file within the managed clone |
+| `GET` | `/api/repositories/{repoId}/chunks` | Return persisted code chunks |
+| `GET` | `/api/repositories/{repoId}/search?query=...` | Keyword-search code chunks |
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/oauth2/authorization/google` | public | Google OAuth2 login redirect |
-| GET | `/login/oauth2/code/google` | public | Google OAuth2 callback |
-| GET | `/api/auth/me` | 🔒 | Current user's profile |
-| GET | `/api/health` | public | Liveness probe |
-| POST | `/api/repositories` | 🔒 | Submit a GitHub URL for analysis |
-| GET | `/api/repositories` | 🔒 | List repositories |
-| GET | `/api/repositories/{id}` | 🔒 | Repository details |
-| DELETE | `/api/repositories/{id}` | 🔒 | Delete a repository and its data |
-| GET | `/api/repositories/{id}/architecture` | 🔒 | Full architecture graph |
-| GET | `/api/repositories/{id}/architecture/spring-layers` | 🔒 | Spring-layer graph |
-| GET | `/api/repositories/{id}/files` | 🔒 | Parsed file list |
-| GET | `/api/repositories/{id}/files/content?filePath=…` | 🔒 | File contents (path-traversal guarded) |
-| GET | `/api/repositories/{id}/entities` · `/relationships` · `/chunks` | 🔒 | Raw parsed artefacts |
-| GET | `/api/repositories/{id}/search?query=…` | 🔒 | Keyword search over chunks |
-| POST | `/api/repositories/{id}/chat` | 🔒 | Streaming RAG chat (SSE) |
-| POST | `/api/repositories/{id}/onboarding` | 🔒 | Generate onboarding guide |
+### AI features
 
-All 🔒 endpoints require `Authorization: Bearer <token>`.
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/repositories/{repoId}/chat` | Stream a source-grounded answer as plain UTF-8 text |
+| `POST` | `/api/repositories/{repoId}/onboarding` | Generate an onboarding guide |
+| `POST` | `/api/ai/index` | Index chunks in ChromaDB; used by the backend |
+| `DELETE` | `/api/ai/index/{repoId}` | Delete a repository vector collection |
+| `GET` | `/api/ai/index/{repoId}/status` | Return index availability and chunk count |
+| `POST` | `/api/ai/chat` | Stream a retrieval-augmented answer; used by the backend |
+| `POST` | `/api/ai/agent-chat` | Stream a tool-using agent answer |
+| `POST` | `/api/ai/onboarding` | Generate an onboarding guide; used by the backend |
 
-### AI service (`:8000`)
+## Security and operational notes
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/ai/index` | Index code chunks into ChromaDB |
-| POST | `/api/ai/chat` | RAG streaming chat |
-| POST | `/api/ai/agent-chat` | Autonomous ReAct agent chat (tool-using) |
-| POST | `/api/ai/onboarding` | Generate onboarding guide |
-| GET | `/health` | Health check |
+- Repository submission accepts public `https://github.com/owner/repository` URLs only.
+- Repository work is asynchronous so clone, parse, and embedding operations do not occupy the request thread that accepted the submission.
+- The ingestion executor is bounded to apply back-pressure under load.
+- The API is stateless and protects authenticated routes with JWT bearer tokens.
+- File-content requests resolve and normalize paths under the managed clone root before reading them.
+- Source walking skips dependency, VCS, build, cache, and generated-output directories, and ignores excessively large files.
+- ChromaDB holds derived vectors; code chunks in H2 or PostgreSQL support index reconstruction after a service restart.
+- Google embedding batches retry quota-related failures with a backoff. Chat uses the configured model fallback list for supported rate-limit and availability failures.
 
----
+## Project structure
 
-## 📁 Project structure
-
-```
+```text
 Project_1/
-├── frontend/            # React 19 + Vite + Tailwind v4
+├── frontend/                         React workspace and Vite configuration
 │   └── src/
-│       ├── components/     # Navbar, RepoInput, ArchitectureGraph, FileExplorer, CodeViewer, ChatPanel, AuthGate, …
-│       ├── pages/          # LoginPage, Dashboard, RepositoryPage
-│       ├── services/       # api.ts (fetch client + SSE + auth header)
-│       ├── store/          # Zustand stores (auth, app)
-│       ├── types/          # TypeScript types
-│       └── utils/          # tokenStorage
-├── backend/             # Spring Boot 3.3.5 (Java 21)
+│       ├── components/               Graph, code, chat, navigation, and setup UI
+│       ├── pages/                    Login, dashboard, repository, and OAuth callback pages
+│       ├── services/                 Authenticated API and stream client
+│       ├── store/                    Zustand application and auth state
+│       └── types/                    Shared frontend type definitions
+├── backend/                          Spring Boot service
 │   └── src/main/java/com/sensei/
-│       ├── security/       # JWT filter, SecurityConfig, UserDetailsService
-│       ├── controller/     # REST + SSE endpoints
-│       ├── service/        # Repo lifecycle, ingestion, Git clone, AI client
-│       ├── analyzer/       # JavaParser + TS/JS analyzers
-│       ├── entity/ repository/ dto/ model/ exception/ config/
-│       └── resources/      # application*.yml
-└── ai-service/          # Python FastAPI
-    ├── main.py             # endpoints
-    ├── rag_chain.py        # RAG chains + prompts + model fallback
-    ├── agent_chain.py      # LangGraph ReAct agent
-    ├── vector_store.py     # ChromaDB + embeddings
-    └── config.py           # settings from .env
+│       ├── analyzer/                 Java, TypeScript, Python, and C/C++ analyzers
+│       ├── controller/               REST and streaming endpoints
+│       ├── security/                 OAuth2, JWT, CORS, and authorization configuration
+│       ├── service/                  Ingestion, cloning, persistence, AI client, and graph services
+│       ├── entity/ repository/       JPA data model and repositories
+│       └── config/                   Web client and asynchronous executor configuration
+└── ai-service/                       FastAPI service
+    ├── main.py                       HTTP endpoints
+    ├── vector_store.py               ChromaDB and embedding providers
+    ├── rag_chain.py                  Retrieval and streamed chat chain
+    ├── agent_chain.py                Tool-using agent chat
+    └── config.py                     Environment-based AI service settings
 ```
 
-> A deeper, from-scratch walkthrough (plus an interview-style Q&A and a file-by-file reference) lives
-> in [`DEVELOPER_README.md`](./DEVELOPER_README.md).
+## Troubleshooting
 
----
+| Symptom | Likely cause | Resolution |
+|---|---|---|
+| Repository reaches `FAILED` during indexing | The AI service is unavailable or its embedding provider is misconfigured | Confirm the AI service is reachable at `AI_SERVICE_URL` and verify its embedding variables |
+| Local MiniLM cannot load | The model has not been cached yet while offline-only mode is active | Temporarily set `EMBEDDING_LOCAL_FILES_ONLY=false`, start the AI service while online, then restore it to `true` |
+| Chat reports no indexed code | The repository is not ready or its vector collection was removed | Wait for `READY`; the backend rebuilds a missing vector collection from persisted chunks on the next chat request |
+| Google embedding requests are rate-limited | Provider quota is exhausted | Wait for the configured retry/backoff or use local embeddings in a suitable environment |
+| Browser requests fail with CORS errors | The frontend origin is not allowed by the backend | Set `APP_ALLOWED_ORIGINS` to include the deployed frontend URL |
+| Google OAuth sign-in fails locally | The authorized redirect URI or client credentials are missing | Configure `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and the matching local redirect URI in Google Cloud |
 
-## 🛠️ Troubleshooting
-
-- **Chat says the AI service is unavailable** → make sure the FastAPI service is running on `:8000`
-  and your `GROQ_API_KEY` (or `GOOGLE_API_KEY`) is set in `ai-service/.env`.
-- **Every refresh signs me out** → ensure the backend is running and reachable through the Vite proxy;
-  the app verifies the stored token against `GET /api/auth/me` on load.
-- **"Only public GitHub repository URLs are supported"** → the clone step accepts only
-  `https://github.com/owner/repo` URLs.
-- **Graph is empty** → non-Java repos won't have Spring layers; switch to "Full architecture".
-
----
-
-## 📜 License
+## License
 
 Provided as-is for educational and portfolio use.
