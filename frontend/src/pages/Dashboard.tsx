@@ -123,6 +123,17 @@ export const Dashboard = () => {
           </div>
         )}
 
+        {/* ── Demo Performance Banner ── */}
+        <div className="mb-8 sheet border-ochre-500/40 bg-ochre-100/50 p-4 flex items-start gap-3">
+          <Icons.BookOpen className="text-ochre-600 flex-shrink-0 mt-0.5" size={18} />
+          <div className="flex-1">
+            <h3 className="text-sm font-semibold text-ochre-900">Welcome to the Live Demo</h3>
+            <p className="text-sm text-ochre-800 mt-1">
+              This portfolio demo is hosted on Render's free tier (throttled to 0.1 CPU core). Because of this, AI responses and codebase analysis can take 10-20 seconds. <strong>If you run this project locally on your machine with a Groq API key, the AI responds instantly!</strong> Open any repository and click the "Local Setup" tab for instructions.
+            </p>
+          </div>
+        </div>
+
         {/* ── Main grid ── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
           <div className="lg:col-span-5">

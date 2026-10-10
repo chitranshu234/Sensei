@@ -13,7 +13,7 @@ import { ChatPanel } from '../components/ChatPanel';
 import { LoadingState } from '../components/LoadingState';
 import { Icons } from '../components/Icons';
 
-type Tab = 'architecture' | 'files' | 'chat';
+type Tab = 'architecture' | 'files' | 'chat' | 'instructions';
 
 const PANEL_HEIGHT = 'h-[calc(100vh-16rem)] min-h-[520px]';
 
