@@ -113,12 +113,22 @@ public class RepositoryService {
 
     /** All repositories, newest first — the order the dashboard expects. */
     public List<RepositoryResponse> getAllRepositories() {
+        if ("true".equals(System.getenv("DEMO_MODE"))) {
+            return repositoryRepo.findAllByOrderByIdDesc().stream()
+                    .map(RepositoryResponse::from)
+                    .toList();
+        }
         return repositoryRepo.findByUserOrderByIdDesc(getCurrentUser()).stream()
                 .map(RepositoryResponse::from)
                 .toList();
     }
 
     public RepositoryResponse getRepository(Long id) {
+        if ("true".equals(System.getenv("DEMO_MODE"))) {
+            return repositoryRepo.findById(id)
+                    .map(RepositoryResponse::from)
+                    .orElseThrow(() -> ResourceNotFoundException.repository(id));
+        }
         return repositoryRepo.findByIdAndUser(id, getCurrentUser())
                 .map(RepositoryResponse::from)
                 .orElseThrow(() -> ResourceNotFoundException.repository(id));
