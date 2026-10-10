@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 public class AiServiceClient {
 
     private static final Logger log = LoggerFactory.getLogger(AiServiceClient.class);
-    private static final Duration INDEX_TIMEOUT = Duration.ofSeconds(180);
+    private static final Duration INDEX_TIMEOUT = Duration.ofMinutes(15);
     private static final Duration STATUS_TIMEOUT = Duration.ofSeconds(15);
     private static final Duration DELETE_TIMEOUT = Duration.ofSeconds(20);
 
