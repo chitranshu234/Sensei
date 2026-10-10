@@ -5,6 +5,7 @@ import com.sensei.repository.CodeChunkRepo;
 import com.sensei.repository.CodeEntityRepo;
 import com.sensei.repository.CodeFileRepo;
 import com.sensei.repository.CodeRelationshipRepo;
+import com.sensei.repository.RepositoryRepo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -28,15 +29,18 @@ public class IngestionPersistence {
     private final CodeEntityRepo codeEntityRepo;
     private final CodeRelationshipRepo codeRelationshipRepo;
     private final CodeChunkRepo codeChunkRepo;
+    private final RepositoryRepo repositoryRepo;
 
     public IngestionPersistence(CodeFileRepo codeFileRepo,
                                 CodeEntityRepo codeEntityRepo,
                                 CodeRelationshipRepo codeRelationshipRepo,
-                                CodeChunkRepo codeChunkRepo) {
+                                CodeChunkRepo codeChunkRepo,
+                                RepositoryRepo repositoryRepo) {
         this.codeFileRepo = codeFileRepo;
         this.codeEntityRepo = codeEntityRepo;
         this.codeRelationshipRepo = codeRelationshipRepo;
         this.codeChunkRepo = codeChunkRepo;
+        this.repositoryRepo = repositoryRepo;
     }
 
     /**
@@ -46,7 +50,14 @@ public class IngestionPersistence {
      * second run would silently duplicate every file, entity and chunk.
      */
     @Transactional
-    public void saveAll(Long repoId, AnalysisResult analysis) {
+    public boolean saveAll(Long repoId, AnalysisResult analysis) {
+        // Coordinate this write with deletion. If the delete committed first, this ingestion
+        // belongs to a repository the user has removed and must not recreate derived rows.
+        if (repositoryRepo.findByIdForUpdate(repoId).isEmpty()) {
+            log.info("Skipping persistence for deleted repository {}", repoId);
+            return false;
+        }
+
         clearExisting(repoId);
 
         codeFileRepo.saveAll(analysis.files);
@@ -57,6 +68,7 @@ public class IngestionPersistence {
         log.info("Persisted repo {}: {} files, {} entities, {} relationships, {} chunks",
                 repoId, analysis.files.size(), analysis.entities.size(),
                 analysis.relationships.size(), analysis.chunks.size());
+        return true;
     }
 
     @Transactional

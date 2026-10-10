@@ -326,6 +326,7 @@ Project_1/
 | Chat reports no indexed code | The repository is not ready or its vector collection was removed | Wait for `READY`; the backend rebuilds a missing vector collection from persisted chunks on the next chat request |
 | Google embedding requests are rate-limited | Provider quota is exhausted | Use `EMBEDDING_PROVIDER=lexical` in the deployed AI service or configure a Google project with adequate billed quota |
 | Deployed AI service returns 502 while indexing | The container restarted while initializing its embedding model | Set `EMBEDDING_PROVIDER=lexical`, redeploy the AI service, then submit the repository again |
+| Re-submission fails after deleting a repository | A prior cleanup task overlapped with the new ingestion | Deploy the backend update; deletion and re-submission are serialized and ingestion begins only after its database transaction commits |
 | Browser requests fail with CORS errors | The frontend origin is not allowed by the backend | Set `APP_ALLOWED_ORIGINS` to include the deployed frontend URL |
 | Google OAuth sign-in fails locally | The authorized redirect URI or client credentials are missing | Configure `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and the matching local redirect URI in Google Cloud |
 

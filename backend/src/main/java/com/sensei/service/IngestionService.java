@@ -125,7 +125,10 @@ public class IngestionService {
                     repoId, analysis.files.size(), analysis.entities.size(),
                     analysis.relationships.size(), analysis.chunks.size());
 
-            persistence.saveAll(repoId, analysis);
+            if (!persistence.saveAll(repoId, analysis)) {
+                log.info("Stopping ingestion for repository {} because it was deleted", repoId);
+                return;
+            }
 
             repo.setTotalFiles(analysis.files.size());
             repo.setTotalClasses(analysis.entities.size());

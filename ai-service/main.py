@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from config import settings
 from vector_store import vector_store_service
 from rag_chain import stream_chat, generate_onboarding
 from agent_chain import stream_agent_chat
@@ -92,10 +93,17 @@ async def index_chunks(request: IndexRequest):
         # Preserve the complete traceback in service logs while returning a clear, non-sensitive
         # message through Spring.  An uncaught exception otherwise becomes a generic 500 that
         # gives the workspace no clue which part of ingestion failed.
-        logger.exception("Could not index repository %d", request.repoId)
+        logger.exception(
+            "Could not index repository %d with EMBEDDING_PROVIDER=%s",
+            request.repoId,
+            settings.embedding_provider,
+        )
         raise HTTPException(
             status_code=503,
-            detail="Code embedding is unavailable. Check the embedding provider configuration and try again.",
+            detail=(
+                "Code embedding is unavailable for EMBEDDING_PROVIDER="
+                f"{settings.embedding_provider}. Check the AI service logs for the underlying error."
+            ),
         ) from exc
 
     return {

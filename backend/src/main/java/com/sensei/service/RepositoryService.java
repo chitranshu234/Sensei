@@ -65,6 +65,7 @@ public class RepositoryService {
      * returned as-is (so a double-click cannot queue the same clone twice), while a FAILED one
      * is reset and retried.
      */
+    @Transactional
     public RepositoryResponse submitRepository(String githubUrl, String branch) {
         if ("true".equals(System.getenv("DEMO_MODE"))) {
             UserEntity user = getCurrentUser();
@@ -75,7 +76,7 @@ public class RepositoryService {
         String normalizedUrl = normalizeUrl(githubUrl);
         String requestedBranch = blankToNull(branch);
 
-        return repositoryRepo.findByGithubUrlAndUser(normalizedUrl, getCurrentUser())
+        return repositoryRepo.findByGithubUrlAndUserForUpdate(normalizedUrl, getCurrentUser())
                 .map(existing -> resubmitIfFailed(existing, requestedBranch))
                 .orElseGet(() -> createAndStart(normalizedUrl, requestedBranch));
     }
@@ -93,7 +94,7 @@ public class RepositoryService {
             existing.setDefaultBranch(branch);
         }
         RepositoryEntity saved = repositoryRepo.save(existing);
-        ingestionService.ingestAsync(saved.getId());
+        startIngestionAfterCommit(saved.getId());
         return RepositoryResponse.from(saved);
     }
 
@@ -107,8 +108,22 @@ public class RepositoryService {
         RepositoryEntity saved = repositoryRepo.save(repo);
 
         log.info("Queued repository {} (id {})", saved.getName(), saved.getId());
-        ingestionService.ingestAsync(saved.getId());
+        startIngestionAfterCommit(saved.getId());
         return RepositoryResponse.from(saved);
+    }
+
+    /**
+     * Start work only after the repository state is visible to the asynchronous worker.
+     * This also keeps a same-repository delete and re-submit from overlapping derived-data
+     * cleanup with a newly queued ingestion.
+     */
+    private void startIngestionAfterCommit(Long repoId) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                ingestionService.ingestAsync(repoId);
+            }
+        });
     }
 
     /** All repositories, newest first — the order the dashboard expects. */
@@ -142,7 +157,7 @@ public class RepositoryService {
      */
     @Transactional
     public void deleteRepository(Long id) {
-        RepositoryEntity repo = repositoryRepo.findByIdAndUser(id, getCurrentUser())
+        RepositoryEntity repo = repositoryRepo.findByIdAndUserForUpdate(id, getCurrentUser())
                 .orElseThrow(() -> ResourceNotFoundException.repository(id));
 
         String clonePath = repo.getClonePath();
