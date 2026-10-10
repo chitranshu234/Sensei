@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Icons } from './Icons';
 
 interface Props {
@@ -6,7 +7,7 @@ interface Props {
 }
 
 export const LocalSetupModal: React.FC<Props> = ({ onClose }) => {
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 bg-ink-900/30 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6">
       <div className="sheet sheet-raised w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden animate-scale-in">
         <div className="px-5 sm:px-6 py-4 border-b border-paper-400 flex items-center justify-between bg-paper-50">
@@ -93,6 +94,7 @@ npm run dev</code></pre>
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
