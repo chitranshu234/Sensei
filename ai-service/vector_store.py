@@ -110,16 +110,23 @@ class VectorStoreService:
             batch_metas = metadatas[i : i + batch_size]
             batch_ids = ids[i : i + batch_size]
             
-            try:
-                store.add_texts(texts=batch_texts, metadatas=batch_metas, ids=batch_ids)
-                logger.info(f"Indexed batch {i//batch_size + 1} for repo {repo_id}")
-            except Exception as e:
-                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                    logger.warning("Hit Google API rate limit! Sleeping for 15 seconds...")
-                    time.sleep(15)
+            success = False
+            retries = 0
+            while not success and retries < 4:
+                try:
                     store.add_texts(texts=batch_texts, metadatas=batch_metas, ids=batch_ids)
-                else:
-                    raise e
+                    logger.info(f"Indexed batch {i//batch_size + 1} for repo {repo_id}")
+                    success = True
+                except Exception as e:
+                    if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                        retries += 1
+                        logger.warning(f"Hit Google API rate limit! Sleeping for 60 seconds... (Retry {retries}/4)")
+                        time.sleep(60)
+                    else:
+                        raise e
+            
+            if not success:
+                raise Exception("Failed to index batch after 4 retries due to rate limits.")
             
             # Tiny sleep between batches to prevent spamming the API
             time.sleep(1.5)
