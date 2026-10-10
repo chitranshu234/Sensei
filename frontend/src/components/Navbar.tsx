@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Icons } from './Icons';
 import { useAuthStore } from '../store/authStore';
+import { LocalSetupModal } from './LocalSetupModal';
 import logoMarkUrl from '../assets/logo-mark.png';
 
 /**
@@ -12,6 +13,7 @@ export const Navbar = () => {
   const location = useLocation();
   const { user, logout } = useAuthStore();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showLocalSetup, setShowLocalSetup] = useState(false);
 
   const initials = (user?.displayName || user?.username || '?')
     .split(' ')
@@ -47,6 +49,14 @@ export const Navbar = () => {
             <Icons.Dashboard size={14} />
             Workspace
           </Link>
+
+          <button
+            onClick={() => setShowLocalSetup(true)}
+            className="hidden sm:inline-flex btn btn-ghost text-ochre-600 hover:text-ochre-700 hover:bg-ochre-50"
+          >
+            <Icons.BookOpen size={14} />
+            Local Setup
+          </button>
 
           {/* Account */}
           <div className="relative">
@@ -109,6 +119,10 @@ export const Navbar = () => {
           </div>
         </div>
       </div>
+
+      {showLocalSetup && (
+        <LocalSetupModal onClose={() => setShowLocalSetup(false)} />
+      )}
     </nav>
   );
 };

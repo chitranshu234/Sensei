@@ -129,7 +129,7 @@ export const Dashboard = () => {
           <div className="flex-1">
             <h3 className="text-sm font-semibold text-ochre-900">Welcome to the Live Demo</h3>
             <p className="text-sm text-ochre-800 mt-1">
-              This portfolio demo is hosted on Render's free tier (throttled to 0.1 CPU core). Because of this, AI responses and codebase analysis can take 10-20 seconds. <strong>If you run this project locally on your machine with a Groq API key, the AI responds instantly!</strong> Open any repository and click the "Local Setup" tab for instructions.
+              This portfolio demo is hosted on Render's free tier (throttled to 0.1 CPU core). Because of this, AI responses and codebase analysis can take 1-2 minutes. <strong>If you run this project locally on your machine with a Groq API key, the AI responds instantly!</strong> Click the "Local Setup" button in the top navigation bar for instructions.
             </p>
           </div>
         </div>
