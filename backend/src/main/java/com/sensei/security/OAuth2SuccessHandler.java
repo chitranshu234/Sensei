@@ -58,6 +58,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
             // set a random password for OAuth users
             newUser.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
             newUser.setLastLoginAt(LocalDateTime.now());
+            newUser.setRole(userRepo.count() == 0 ? com.sensei.model.Role.ADMIN : com.sensei.model.Role.USER);
             return userRepo.save(newUser);
         });
 
