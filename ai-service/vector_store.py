@@ -7,6 +7,7 @@ from typing import Optional
 
 import chromadb
 from chromadb.config import Settings as ChromaSettings
+from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_core.embeddings import Embeddings
@@ -15,6 +16,42 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from config import settings
 
 logger = logging.getLogger(__name__)
+
+
+class OnnxMiniLMEmbeddings(Embeddings):
+    """CPU-only embeddings for deployments that cannot use Google quota or PyTorch memory.
+
+    Chroma already depends on ONNX Runtime and Tokenizers, so this provider avoids adding a
+    second model stack to the Render image. The underlying MiniLM model accepts at most 256
+    tokens; the adapter progressively shortens only the embedding input when necessary while
+    Chroma still stores the complete source chunk for retrieval context.
+    """
+
+    def __init__(self):
+        self._embedding_function = ONNXMiniLM_L6_V2(
+            preferred_providers=["CPUExecutionProvider"]
+        )
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        candidates = texts
+        for attempt in range(4):
+            try:
+                embeddings = self._embedding_function(candidates)
+                return [list(vector) for vector in embeddings]
+            except ValueError as exc:
+                if "greater than the max tokens" not in str(exc) or attempt == 3:
+                    raise
+                max_chars = min(768, max(128, max(len(text) for text in candidates) // 2))
+                logger.debug(
+                    "Truncating ONNX embedding input to %d characters after a token-limit error",
+                    max_chars,
+                )
+                candidates = [text[:max_chars] for text in candidates]
+
+        raise RuntimeError("Unable to create ONNX embeddings")
+
+    def embed_query(self, text: str) -> list[float]:
+        return self.embed_documents([text])[0]
 
 
 class VectorStoreService:
@@ -51,9 +88,12 @@ class VectorStoreService:
                     model=settings.google_embedding_model,
                     google_api_key=settings.google_api_key,
                 )
+            elif settings.embedding_provider == "onnx":
+                logger.info("Loading Chroma ONNX MiniLM embeddings on CPU")
+                self._embeddings = OnnxMiniLMEmbeddings()
             else:
                 raise RuntimeError(
-                    "Unsupported EMBEDDING_PROVIDER=%r. Use 'local' or 'google'."
+                    "Unsupported EMBEDDING_PROVIDER=%r. Use 'local', 'onnx', or 'google'."
                     % settings.embedding_provider
                 )
         return self._embeddings
@@ -68,6 +108,11 @@ class VectorStoreService:
         return self._chroma_client
 
     def _collection_name(self, repo_id: int) -> str:
+        # ONNX vectors have a different dimension from Gemini vectors. A separate namespace
+        # makes an existing Google index look absent, allowing the backend's normal recovery path
+        # to rebuild it safely with ONNX after the deployment setting changes.
+        if settings.embedding_provider == "onnx":
+            return f"repo_{repo_id}_onnx"
         return f"repo_{repo_id}"
 
     def get_store(self, repo_id: int) -> Chroma:
@@ -204,12 +249,22 @@ class VectorStoreService:
 
     def delete_repo(self, repo_id: int):
         """Delete all indexed data for a repository."""
-        try:
-            self.chroma_client.delete_collection(self._collection_name(repo_id))
-            self._stores.pop(repo_id, None)
+        collection_names = {self._collection_name(repo_id)}
+        if settings.embedding_provider == "onnx":
+            # Clear a legacy Google collection too when a repository is explicitly deleted.
+            collection_names.add(f"repo_{repo_id}")
+
+        deleted = False
+        for collection_name in collection_names:
+            try:
+                self.chroma_client.delete_collection(collection_name)
+                deleted = True
+            except Exception as e:
+                logger.debug("No vector store named %s to delete: %s", collection_name, e)
+
+        self._stores.pop(repo_id, None)
+        if deleted:
             logger.info("Deleted vector store for repo %d", repo_id)
-        except Exception as e:
-            logger.warning("Failed to delete store for repo %d: %s", repo_id, e)
 
 
 # Singleton

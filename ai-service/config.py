@@ -14,8 +14,9 @@ class Settings(BaseSettings):
 
     # Embedding
     embedding_model: str = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
-    # Google is the deployment default because the local model exceeds Render's free-tier
-    # memory budget. Local workspaces can opt in to MiniLM without relying on an external API.
+    # Google is the deployment default because the PyTorch-based local model exceeds Render's
+    # free-tier memory budget. Deployments can instead choose the lightweight ONNX provider,
+    # while local workspaces can opt in to MiniLM without relying on an external API.
     embedding_provider: str = os.getenv("EMBEDDING_PROVIDER", "google").strip().lower()
     embedding_local_files_only: bool = os.getenv(
         "EMBEDDING_LOCAL_FILES_ONLY", "true"

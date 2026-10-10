@@ -157,7 +157,15 @@ Open `http://localhost:5173`. Vite forwards `/api/*` requests to the backend at 
 
 ## Deployment configuration
 
-The local embedding model is convenient for a developer machine but can exceed the memory available on small hosting plans. For a memory-constrained deployment, use Google embeddings instead:
+The PyTorch-based local embedding model can exceed the memory available on small hosting plans. For a memory-constrained deployment, use Chroma's CPU-only ONNX MiniLM provider. It does not use the Google embedding API and therefore is not subject to Google embedding quota exhaustion:
+
+```env
+EMBEDDING_PROVIDER=onnx
+```
+
+The first deployed index downloads the ONNX model to the AI service's local cache. On ephemeral infrastructure, that model is downloaded again after an instance replacement.
+
+Google embeddings remain available when the deployment has sufficient quota and a configured billing plan:
 
 ```env
 EMBEDDING_PROVIDER=google
@@ -210,7 +218,7 @@ On ephemeral infrastructure, do not rely on the AI service disk for durable data
 | `GOOGLE_API_KEY` | — | Required for Google chat or Google embeddings |
 | `LLM_MODEL` | `llama-3.3-70b-versatile` | Primary chat model |
 | `LLM_FALLBACK_MODELS` | Groq fallback list | Ordered fallback models for rate-limit or availability failures |
-| `EMBEDDING_PROVIDER` | `google` | `local` for MiniLM, `google` for managed embeddings |
+| `EMBEDDING_PROVIDER` | `google` | `local` for PyTorch MiniLM, `onnx` for lightweight CPU MiniLM, or `google` for managed embeddings |
 | `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Local SentenceTransformer model |
 | `EMBEDDING_LOCAL_FILES_ONLY` | `true` | Keep local MiniLM loading offline after the initial download |
 | `GOOGLE_EMBEDDING_MODEL` | `models/gemini-embedding-001` | Managed embedding model |
@@ -306,7 +314,7 @@ Project_1/
 | Repository reaches `FAILED` during indexing | The AI service is unavailable or its embedding provider is misconfigured | Confirm the AI service is reachable at `AI_SERVICE_URL` and verify its embedding variables |
 | Local MiniLM cannot load | The model has not been cached yet while offline-only mode is active | Temporarily set `EMBEDDING_LOCAL_FILES_ONLY=false`, start the AI service while online, then restore it to `true` |
 | Chat reports no indexed code | The repository is not ready or its vector collection was removed | Wait for `READY`; the backend rebuilds a missing vector collection from persisted chunks on the next chat request |
-| Google embedding requests are rate-limited | Provider quota is exhausted | Wait for the configured retry/backoff or use local embeddings in a suitable environment |
+| Google embedding requests are rate-limited | Provider quota is exhausted | Use `EMBEDDING_PROVIDER=onnx` in the deployed AI service or configure a Google project with adequate billed quota |
 | Browser requests fail with CORS errors | The frontend origin is not allowed by the backend | Set `APP_ALLOWED_ORIGINS` to include the deployed frontend URL |
 | Google OAuth sign-in fails locally | The authorized redirect URI or client credentials are missing | Configure `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and the matching local redirect URI in Google Cloud |
 
