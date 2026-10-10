@@ -46,19 +46,45 @@ export const LocalSetupModal: React.FC<Props> = ({ onClose }) => {
           </ul>
 
           <h3>1. Clone the repository</h3>
-          <pre><code>git clone https://github.com/chitranshu234/Sensei.git\ncd Sensei</code></pre>
+          <pre><code>git clone https://github.com/chitranshu234/Sensei.git
+cd Sensei</code></pre>
 
           <h3>2. Backend Setup (Java Spring Boot)</h3>
-          <pre><code>cd backend\nmvn clean install\nmvn spring-boot:run</code></pre>
+          <p>Create a Google Cloud Project, enable the Google Identity API, and get your OAuth 2.0 Client credentials. Set them as environment variables before running:</p>
+          <pre><code>cd backend
+mvn clean install
+
+# On Windows PowerShell:
+$env:GOOGLE_CLIENT_ID="your_google_id"
+$env:GOOGLE_CLIENT_SECRET="your_google_secret"
+mvn spring-boot:run
+
+# On Mac/Linux:
+# GOOGLE_CLIENT_ID="your_id" GOOGLE_CLIENT_SECRET="your_secret" mvn spring-boot:run</code></pre>
           
           <h3>3. AI Service Setup (Python FastAPI)</h3>
-          <pre><code>cd ai-service\npython -m venv .venv\n# On Windows:\n.venv\\Scripts\\activate\n# On Mac/Linux:\n# source .venv/bin/activate\n\npip install -r requirements.txt</code></pre>
+          <pre><code>cd ai-service
+python -m venv .venv
+# On Windows:
+.venv\\Scripts\\activate
+# On Mac/Linux:
+# source .venv/bin/activate
+
+pip install -r requirements.txt</code></pre>
           <p>Create a <code>.env</code> file in the <code>ai-service</code> directory and add your API key:</p>
-          <pre><code># Use Google Gemini:\nLLM_PROVIDER=gemini\nGEMINI_API_KEY=your_google_api_key\n\n# Or use Groq for lightning-fast responses:\n# LLM_PROVIDER=groq\n# GROQ_API_KEY=your_groq_api_key</code></pre>
+          <pre><code># Use Google Gemini:
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=your_google_api_key
+
+# Or use Groq for lightning-fast responses:
+# LLM_PROVIDER=groq
+# GROQ_API_KEY=your_groq_api_key</code></pre>
           <pre><code>uvicorn main:app --port 8000 --reload</code></pre>
 
           <h3>4. Frontend Setup (React)</h3>
-          <pre><code>cd frontend\nnpm install\nnpm run dev</code></pre>
+          <pre><code>cd frontend
+npm install
+npm run dev</code></pre>
 
           <p className="mt-6 text-sm text-ink-500">Once all three services are running, open your browser to <code>http://localhost:5173</code> to start querying your local repositories instantly without restrictions.</p>
         </div>
