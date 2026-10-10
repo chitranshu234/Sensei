@@ -13,6 +13,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Comparator;
 import java.util.List;
@@ -33,22 +35,19 @@ public class RepositoryService {
     private final RepositoryRepo repositoryRepo;
     private final IngestionService ingestionService;
     private final IngestionPersistence persistence;
-    private final GitCloneService gitCloneService;
     private final UserRepo userRepo;
-    private final AiServiceClient aiServiceClient;
+    private final RepositoryCleanupService repositoryCleanupService;
 
     public RepositoryService(RepositoryRepo repositoryRepo,
                              IngestionService ingestionService,
-                             IngestionPersistence persistence,
-                             GitCloneService gitCloneService,
-                             UserRepo userRepo,
-                             AiServiceClient aiServiceClient) {
+                              IngestionPersistence persistence,
+                              UserRepo userRepo,
+                              RepositoryCleanupService repositoryCleanupService) {
         this.repositoryRepo = repositoryRepo;
         this.ingestionService = ingestionService;
         this.persistence = persistence;
-        this.gitCloneService = gitCloneService;
         this.userRepo = userRepo;
-        this.aiServiceClient = aiServiceClient;
+        this.repositoryCleanupService = repositoryCleanupService;
     }
 
     private UserEntity getCurrentUser() {
@@ -129,19 +128,16 @@ public class RepositoryService {
                 .orElseThrow(() -> ResourceNotFoundException.repository(id));
 
         String clonePath = repo.getClonePath();
-        if (clonePath != null && !clonePath.isBlank()) {
-            try {
-                gitCloneService.deleteClone(clonePath);
-            } catch (Exception e) {
-                // A failed disk cleanup must not block the database delete.
-                log.warn("Could not remove clone at {}: {}", clonePath, e.getMessage());
-            }
-        }
 
         persistence.clearExisting(id);
         repositoryRepo.delete(repo);
-        aiServiceClient.deleteRepo(id);
-        log.info("Deleted repository {} and all derived data", id);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                repositoryCleanupService.cleanupAsync(id, clonePath);
+            }
+        });
+        log.info("Deleted repository {} and all derived data; background cleanup scheduled", id);
     }
 
     /** Strip a trailing slash and a trailing {@code .git} so equivalent URLs deduplicate. */

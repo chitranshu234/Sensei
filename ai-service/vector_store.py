@@ -125,6 +125,16 @@ class VectorStoreService:
             })
         return docs
 
+    def count_repo_chunks(self, repo_id: int) -> int:
+        """Return the number of indexed chunks without creating an empty collection."""
+        try:
+            collection = self.chroma_client.get_collection(self._collection_name(repo_id))
+            return collection.count()
+        except Exception as e:
+            # A missing collection is normal after a restart on ephemeral storage.
+            logger.debug("No vector store found for repo %d: %s", repo_id, e)
+            return 0
+
     def delete_repo(self, repo_id: int):
         """Delete all indexed data for a repository."""
         try:

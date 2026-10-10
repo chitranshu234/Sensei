@@ -103,6 +103,22 @@ async def delete_repo(repo_id: int):
     return {"status": "ok", "repoId": repo_id}
 
 
+@app.get("/api/ai/index/{repo_id}/status")
+async def index_status(repo_id: int):
+    """Report whether this running AI instance has a usable repository index.
+
+    Chroma is deliberately treated as a rebuildable cache: Render can replace the
+    instance or its local disk during a deploy.  The Spring service keeps the
+    source chunks in Postgres and uses this lightweight check to restore a
+    missing cache before answering a question.
+    """
+    return {
+        "status": "ok",
+        "repoId": repo_id,
+        "indexed": vector_store_service.count_repo_chunks(repo_id),
+    }
+
+
 # ─── Chat Endpoint (SSE Streaming) ───────────────────────────
 
 @app.post("/api/ai/chat")
