@@ -30,13 +30,6 @@ export const LocalSetupModal: React.FC<Props> = ({ onClose }) => {
         </div>
 
         <div className="p-5 sm:p-6 overflow-y-auto text-sm leading-relaxed text-ink-700 md-body max-w-none">
-          <div className="bg-ochre-50 border border-ochre-200 rounded-md p-4 mb-6">
-            <p className="text-sm text-ochre-900">
-              <strong>Note on Performance:</strong> You are currently viewing the live portfolio demo. Because this backend is hosted on Render's free tier (throttled to 0.1 CPU core), AI responses and codebase analysis can take 1-2 minutes. 
-              When you run this project locally on your own machine with a fast API key (like Groq), the AI responds instantly!
-            </p>
-          </div>
-
           <h3>Prerequisites</h3>
           <ul>
             <li>Java 21 and Maven</li>
