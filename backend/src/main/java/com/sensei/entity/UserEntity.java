@@ -39,7 +39,7 @@ public class UserEntity {
 
     private LocalDateTime lastLoginAt;
     
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "integer default 0")
     private int aiMessageCount = 0;
 
     @PrePersist
