@@ -9,7 +9,7 @@ import java.util.List;
 
 @Repository
 public interface CodeRelationshipRepo extends JpaRepository<CodeRelationshipEntity, Long> {
-    List<CodeRelationshipEntity> findByRepoId(Long repoId);
+    List<CodeRelationshipEntity> findByRepoIdOrderByIdAsc(Long repoId);
     List<CodeRelationshipEntity> findByRepoIdAndRelationType(Long repoId, RelationType relationType);
     List<CodeRelationshipEntity> findByRepoIdAndSourceEntityId(Long repoId, Long sourceEntityId);
     List<CodeRelationshipEntity> findByRepoIdAndTargetEntityId(Long repoId, Long targetEntityId);

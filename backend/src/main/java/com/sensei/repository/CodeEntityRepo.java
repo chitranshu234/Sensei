@@ -9,9 +9,9 @@ import java.util.List;
 
 @Repository
 public interface CodeEntityRepo extends JpaRepository<CodeEntity, Long> {
-    List<CodeEntity> findByRepoId(Long repoId);
+    List<CodeEntity> findByRepoIdOrderByIdAsc(Long repoId);
     List<CodeEntity> findByRepoIdAndEntityType(Long repoId, EntityType entityType);
-    List<CodeEntity> findByRepoIdAndEntityTypeIn(Long repoId, List<EntityType> types);
+    List<CodeEntity> findByRepoIdAndEntityTypeInOrderByIdAsc(Long repoId, List<EntityType> types);
     List<CodeEntity> findByRepoIdAndNameContainingIgnoreCase(Long repoId, String name);
     void deleteByRepoId(Long repoId);
 }

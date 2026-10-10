@@ -64,8 +64,8 @@ public class ArchitectureService {
     /** Full architecture graph: every discovered entity and relationship. */
     public ArchitectureResponse getArchitectureGraph(Long repoId) {
         return buildGraph(
-                codeEntityRepo.findByRepoId(repoId),
-                codeRelationshipRepo.findByRepoId(repoId),
+                codeEntityRepo.findByRepoIdOrderByIdAsc(repoId),
+                codeRelationshipRepo.findByRepoIdOrderByIdAsc(repoId),
                 null
         );
     }
@@ -75,7 +75,7 @@ public class ArchitectureService {
      * wiring relationships so the dependency direction is legible.
      */
     public ArchitectureResponse getSpringLayerGraph(Long repoId) {
-        List<CodeEntity> entities = codeEntityRepo.findByRepoIdAndEntityTypeIn(repoId, SPRING_LAYER_TYPES);
+        List<CodeEntity> entities = codeEntityRepo.findByRepoIdAndEntityTypeInOrderByIdAsc(repoId, SPRING_LAYER_TYPES);
 
         // A repository with no Spring annotations at all (e.g. a plain Node project) should
         // yield an empty graph rather than a misleadingly truncated one — the UI detects the
@@ -84,7 +84,7 @@ public class ArchitectureService {
             return new ArchitectureResponse(new ArrayList<>(), new ArrayList<>());
         }
 
-        List<CodeRelationshipEntity> relationships = codeRelationshipRepo.findByRepoId(repoId).stream()
+        List<CodeRelationshipEntity> relationships = codeRelationshipRepo.findByRepoIdOrderByIdAsc(repoId).stream()
                 .filter(rel -> SPRING_LAYER_RELATIONS.contains(rel.getRelationType()))
                 .toList();
 
