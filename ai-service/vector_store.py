@@ -2,12 +2,15 @@
 Vector store service using ChromaDB for code chunk storage and retrieval.
 """
 import logging
+import time
 from typing import Optional
 
 import chromadb
 from chromadb.config import Settings as ChromaSettings
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import Chroma
+from langchain_core.embeddings import Embeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 
 from config import settings
 
@@ -18,18 +21,41 @@ class VectorStoreService:
     """Manages per-repository ChromaDB collections for code chunk embeddings."""
 
     def __init__(self):
-        self._embeddings: Optional[GoogleGenerativeAIEmbeddings] = None
+        self._embeddings: Optional[Embeddings] = None
         self._chroma_client: Optional[chromadb.ClientAPI] = None
         self._stores: dict[int, Chroma] = {}
 
     @property
-    def embeddings(self) -> GoogleGenerativeAIEmbeddings:
+    def embeddings(self) -> Embeddings:
         if self._embeddings is None:
-            logger.info("Loading Google Generative AI embeddings to save RAM")
-            self._embeddings = GoogleGenerativeAIEmbeddings(
-                model="models/gemini-embedding-001",
-                google_api_key=settings.google_api_key
-            )
+            if settings.embedding_provider == "local":
+                logger.info("Loading local embedding model: %s", settings.embedding_model)
+                self._embeddings = HuggingFaceEmbeddings(
+                    model_name=settings.embedding_model,
+                    # Do not make repository ingestion wait on Hugging Face metadata requests.
+                    # A new local machine can set EMBEDDING_LOCAL_FILES_ONLY=false once to
+                    # download the model, then return to offline mode.
+                    model_kwargs={
+                        "device": "cpu",
+                        "local_files_only": settings.embedding_local_files_only,
+                    },
+                    encode_kwargs={"normalize_embeddings": True},
+                )
+            elif settings.embedding_provider == "google":
+                if not settings.google_api_key:
+                    raise RuntimeError(
+                        "GOOGLE_API_KEY is required when EMBEDDING_PROVIDER=google"
+                    )
+                logger.info("Loading Google embedding model: %s", settings.google_embedding_model)
+                self._embeddings = GoogleGenerativeAIEmbeddings(
+                    model=settings.google_embedding_model,
+                    google_api_key=settings.google_api_key,
+                )
+            else:
+                raise RuntimeError(
+                    "Unsupported EMBEDDING_PROVIDER=%r. Use 'local' or 'google'."
+                    % settings.embedding_provider
+                )
         return self._embeddings
 
     @property
@@ -100,39 +126,52 @@ class VectorStoreService:
         except Exception:
             pass
 
-        import time
         store = self.get_store(repo_id)
-        
-        # Batch to avoid Google Gemini 429 Rate Limits
+
+        # Keep batches modest so large repositories do not create a large intermediate tensor.
+        # Only Google's remote API needs quota backoff; local workspaces should continue directly.
         batch_size = 50
         for i in range(0, len(texts), batch_size):
             batch_texts = texts[i : i + batch_size]
             batch_metas = metadatas[i : i + batch_size]
             batch_ids = ids[i : i + batch_size]
-            
-            success = False
-            retries = 0
-            while not success and retries < 4:
-                try:
-                    store.add_texts(texts=batch_texts, metadatas=batch_metas, ids=batch_ids)
-                    logger.info(f"Indexed batch {i//batch_size + 1} for repo {repo_id}")
-                    success = True
-                except Exception as e:
-                    if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                        retries += 1
-                        logger.warning(f"Hit Google API rate limit! Sleeping for 60 seconds... (Retry {retries}/4)")
-                        time.sleep(60)
-                    else:
-                        raise e
-            
-            if not success:
-                raise Exception("Failed to index batch after 4 retries due to rate limits.")
-            
-            # Tiny sleep between batches to prevent spamming the API
-            time.sleep(1.5)
+            if settings.embedding_provider == "google":
+                self._add_google_batch(store, batch_texts, batch_metas, batch_ids, repo_id, i)
+            else:
+                store.add_texts(texts=batch_texts, metadatas=batch_metas, ids=batch_ids)
+            logger.info("Indexed batch %d for repo %d", i // batch_size + 1, repo_id)
 
         logger.info("Successfully indexed %d chunks for repo %d", len(texts), repo_id)
         return len(texts)
+
+    def _add_google_batch(
+        self,
+        store: Chroma,
+        texts: list[str],
+        metadatas: list[dict],
+        ids: list[str],
+        repo_id: int,
+        offset: int,
+    ) -> None:
+        """Index one Google batch, backing off only for a documented quota response."""
+        for attempt in range(1, 5):
+            try:
+                store.add_texts(texts=texts, metadatas=metadatas, ids=ids)
+                return
+            except Exception as exc:
+                is_rate_limited = "429" in str(exc) or "RESOURCE_EXHAUSTED" in str(exc)
+                if not is_rate_limited or attempt == 4:
+                    raise
+                delay_seconds = 60
+                logger.warning(
+                    "Google embedding quota reached for repo %d batch %d; retrying in %d seconds "
+                    "(%d/4)",
+                    repo_id,
+                    offset // 50 + 1,
+                    delay_seconds,
+                    attempt,
+                )
+                time.sleep(delay_seconds)
 
     def search(self, repo_id: int, query: str, k: int = 6) -> list[dict]:
         """Search for relevant code chunks using similarity search."""

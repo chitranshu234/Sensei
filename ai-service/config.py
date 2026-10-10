@@ -14,6 +14,15 @@ class Settings(BaseSettings):
 
     # Embedding
     embedding_model: str = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+    # Google is the deployment default because the local model exceeds Render's free-tier
+    # memory budget. Local workspaces can opt in to MiniLM without relying on an external API.
+    embedding_provider: str = os.getenv("EMBEDDING_PROVIDER", "google").strip().lower()
+    embedding_local_files_only: bool = os.getenv(
+        "EMBEDDING_LOCAL_FILES_ONLY", "true"
+    ).strip().lower() in {"1", "true", "yes", "on"}
+    google_embedding_model: str = os.getenv(
+        "GOOGLE_EMBEDDING_MODEL", "models/gemini-embedding-001"
+    )
 
     # ChromaDB
     chroma_persist_dir: str = os.getenv("CHROMA_PERSIST_DIR", "./data/chroma")

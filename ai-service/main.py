@@ -86,7 +86,17 @@ async def index_chunks(request: IndexRequest):
     )
 
     chunks_data = [chunk.model_dump() for chunk in request.chunks]
-    count = vector_store_service.index_chunks(request.repoId, chunks_data)
+    try:
+        count = vector_store_service.index_chunks(request.repoId, chunks_data)
+    except Exception as exc:
+        # Preserve the complete traceback in service logs while returning a clear, non-sensitive
+        # message through Spring.  An uncaught exception otherwise becomes a generic 500 that
+        # gives the workspace no clue which part of ingestion failed.
+        logger.exception("Could not index repository %d", request.repoId)
+        raise HTTPException(
+            status_code=503,
+            detail="Code embedding is unavailable. Check the embedding provider configuration and try again.",
+        ) from exc
 
     return {
         "status": "ok",

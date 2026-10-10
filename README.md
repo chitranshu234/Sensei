@@ -157,6 +157,8 @@ URL in the browser. Sign in using your Google account to get started.
 | `LLM_PROVIDER` | `groq` | `groq` or `google` |
 | `GROQ_API_KEY` | — | Required when provider is `groq` |
 | `GOOGLE_API_KEY` | — | Required when provider is `google` |
+| `EMBEDDING_PROVIDER` | `google` | `google` for memory-constrained deployments, or cached `local` MiniLM for offline workspaces |
+| `EMBEDDING_LOCAL_FILES_ONLY` | `true` | Prevent local workspaces from making a Hugging Face metadata request; set `false` once to download MiniLM on a new machine |
 | `LLM_MODEL` | `llama-3.3-70b-versatile` | Primary model |
 | `LLM_FALLBACK_MODELS` | `llama-3.1-8b-instant,…` | Comma-separated fallback chain used on rate limits |
 | `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Local embedding model |

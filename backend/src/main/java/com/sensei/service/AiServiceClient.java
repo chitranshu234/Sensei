@@ -64,6 +64,10 @@ public class AiServiceClient {
                 .uri("/api/ai/index")
                 .bodyValue(request)
                 .retrieve()
+                .onStatus(status -> status.isError(), clientResponse -> clientResponse.bodyToMono(String.class)
+                        .defaultIfEmpty("No error detail returned by the AI service")
+                        .map(body -> new IllegalStateException(
+                                "AI service indexing failed (" + clientResponse.statusCode().value() + "): " + body)))
                 .bodyToMono(Map.class)
                 .block(INDEX_TIMEOUT);
 
