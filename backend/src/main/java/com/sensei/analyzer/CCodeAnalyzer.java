@@ -26,7 +26,7 @@ public class CCodeAnalyzer implements LanguageAnalyzer {
 
     private static final Logger log = LoggerFactory.getLogger(CCodeAnalyzer.class);
 
-    private static final Pattern CLASS_PATTERN = Pattern.compile("^[\\s]*(?:struct|class)\\s+([a-zA-Z_][a-zA-Z0-9_]*)", Pattern.MULTILINE);
+    private static final Pattern CLASS_PATTERN = Pattern.compile("^[\\s]*(?:struct|class)\\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\\s*:\\s*(?:public|protected|private)?\\s*([a-zA-Z_][a-zA-Z0-9_]*))?", Pattern.MULTILINE);
     private static final Pattern FUNC_PATTERN = Pattern.compile("^[\\s]*(?:[a-zA-Z_][a-zA-Z0-9_]*\\s+)+\\*?\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\([^)]*\\)\\s*\\{", Pattern.MULTILINE);
     private static final Pattern INCLUDE_PATTERN = Pattern.compile("^\\s*#include\\s*[<\"]([^>\"]+)[>\"]", Pattern.MULTILINE);
 
@@ -42,7 +42,21 @@ public class CCodeAnalyzer implements LanguageAnalyzer {
 
     @Override
     public boolean supports(String fileName) {
-        return fileName.endsWith(".c") || fileName.endsWith(".cpp") || fileName.endsWith(".h") || fileName.endsWith(".hpp");
+        String normalized = fileName.replace('\\', '/').toLowerCase();
+        if (!normalized.endsWith(".c") && !normalized.endsWith(".cpp") && !normalized.endsWith(".h") && !normalized.endsWith(".hpp")) {
+            return false;
+        }
+        String[] parts = normalized.split("/");
+        String lastPart = parts[parts.length - 1];
+        if (lastPart.startsWith("test_") || lastPart.endsWith("_test.cpp") || lastPart.endsWith("_test.c")) {
+            return false;
+        }
+        for (int i = 0; i < parts.length - 1; i++) {
+            if (parts[i].equals("tests") || parts[i].equals("test")) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
@@ -83,32 +97,48 @@ public class CCodeAnalyzer implements LanguageAnalyzer {
             Matcher includeMatcher = INCLUDE_PATTERN.matcher(source);
             while (includeMatcher.find()) {
                 String includedFile = includeMatcher.group(1);
-                CodeRelationshipEntity rel = new CodeRelationshipEntity();
-                rel.setRepoId(repoId);
-                rel.setSourceName(baseSourceName);
-                rel.setTargetName(extractBaseName(includedFile));
-                rel.setRelationType(RelationType.CALLS);
-                rel.setDescription(baseSourceName + " includes " + includedFile);
-                result.relationships.add(rel);
+                String includedBase = extractBaseName(includedFile);
+                if (!includedBase.isEmpty() && !includedBase.equals(baseSourceName)) {
+                    CodeRelationshipEntity rel = new CodeRelationshipEntity();
+                    rel.setRepoId(repoId);
+                    rel.setSourceName(baseSourceName);
+                    rel.setTargetName(includedBase);
+                    rel.setRelationType(RelationType.CALLS);
+                    rel.setDescription(baseSourceName + " includes " + includedFile);
+                    result.relationships.add(rel);
+                }
             }
 
             Matcher classMatcher = CLASS_PATTERN.matcher(source);
             while (classMatcher.find()) {
+                String className = classMatcher.group(1);
+                String baseClass = classMatcher.group(2);
+
                 CodeEntity entity = new CodeEntity();
                 entity.setRepoId(repoId);
-                entity.setName(classMatcher.group(1));
-                entity.setQualifiedName(relativePath + ":" + classMatcher.group(1));
+                entity.setName(className);
+                entity.setQualifiedName(relativePath + ":" + className);
                 entity.setEntityType(EntityType.CLASS);
                 entity.setFilePath(relativePath);
                 result.entities.add(entity);
 
-                CodeRelationshipEntity rel = new CodeRelationshipEntity();
-                rel.setRepoId(repoId);
-                rel.setSourceName(baseSourceName);
-                rel.setTargetName(entity.getName());
-                rel.setRelationType(RelationType.CONTAINS);
-                rel.setDescription(baseSourceName + " contains " + entity.getName());
-                result.relationships.add(rel);
+                CodeRelationshipEntity containsRel = new CodeRelationshipEntity();
+                containsRel.setRepoId(repoId);
+                containsRel.setSourceName(baseSourceName);
+                containsRel.setTargetName(entity.getName());
+                containsRel.setRelationType(RelationType.CONTAINS);
+                containsRel.setDescription(baseSourceName + " contains " + entity.getName());
+                result.relationships.add(containsRel);
+
+                if (baseClass != null && !baseClass.isBlank()) {
+                    CodeRelationshipEntity extRel = new CodeRelationshipEntity();
+                    extRel.setRepoId(repoId);
+                    extRel.setSourceName(className);
+                    extRel.setTargetName(baseClass.trim());
+                    extRel.setRelationType(RelationType.EXTENDS);
+                    extRel.setDescription(className + " extends " + baseClass.trim());
+                    result.relationships.add(extRel);
+                }
             }
 
             Matcher funcMatcher = FUNC_PATTERN.matcher(source);

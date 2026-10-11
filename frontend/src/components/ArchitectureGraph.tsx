@@ -161,7 +161,7 @@ export const ArchitectureGraphView: React.FC<Props> = ({ repoId, graph, onNodeCl
 
   const isSpringRepo = React.useMemo(() => {
     if (!graph || !graph.nodes) return false;
-    const springTypes = ['REST_CONTROLLER', 'CONTROLLER', 'SERVICE', 'REPOSITORY', 'ENTITY', 'CONFIGURATION'];
+    const springTypes = ['REST_CONTROLLER', 'CONTROLLER', 'SERVICE', 'REPOSITORY', 'ENTITY', 'CONFIGURATION', 'INTERFACE'];
     return graph.nodes.some((node) => springTypes.includes(node.type));
   }, [graph]);
 
@@ -177,7 +177,7 @@ export const ArchitectureGraphView: React.FC<Props> = ({ repoId, graph, onNodeCl
   const handleToggleSpringLayers = async (enable: boolean) => {
     setIsSpringOnly(enable);
     setSelectedNode(null);
-    const springTypes = ['REST_CONTROLLER', 'CONTROLLER', 'SERVICE', 'REPOSITORY', 'ENTITY', 'COMPONENT', 'CONFIGURATION'];
+    const springTypes = ['REST_CONTROLLER', 'CONTROLLER', 'SERVICE', 'REPOSITORY', 'ENTITY', 'COMPONENT', 'CONFIGURATION', 'INTERFACE'];
     const clientFilter = (): ArchitectureGraph => {
       const filteredNodes = (graph?.nodes || []).filter((n) => springTypes.includes(n.type));
       const nodeIds = new Set(filteredNodes.map((n) => n.id));
@@ -242,6 +242,7 @@ export const ArchitectureGraphView: React.FC<Props> = ({ repoId, graph, onNodeCl
       if (node.type === 'REST_CONTROLLER' || node.type === 'CONTROLLER') return { id: 'group_controllers', label: 'Controllers' };
       if (node.type === 'SERVICE') return { id: 'group_services', label: 'Services' };
       if (node.type === 'REPOSITORY') return { id: 'group_repositories', label: 'Repositories' };
+      if (node.type === 'INTERFACE') return { id: 'group_interfaces', label: 'Interfaces' };
       if (node.type === 'ENTITY' || node.type === 'RECORD') return { id: 'group_entities', label: 'Entities' };
       if (node.type === 'CONFIGURATION') return { id: 'group_config', label: 'Configuration' };
       if (node.filePath) {

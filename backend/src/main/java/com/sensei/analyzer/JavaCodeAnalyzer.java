@@ -47,6 +47,16 @@ public class JavaCodeAnalyzer implements LanguageAnalyzer {
             "test", "tests", "testfixtures", "it", "integrationtest", "generated", "generated-sources"
     );
 
+    /** Standard Java built-in types to avoid recording as architectural components. */
+    private static final Set<String> BUILT_IN_TYPES = Set.of(
+            "String", "Integer", "Long", "Double", "Float", "Boolean", "Byte", "Short", "Character",
+            "Object", "void", "Void", "int", "long", "double", "float", "boolean", "byte", "short", "char",
+            "List", "Set", "Map", "Collection", "Optional", "Arrays", "Collections", "Objects",
+            "System", "Math", "Thread", "Class", "StringBuilder", "StringBuffer",
+            "InputStream", "OutputStream", "Reader", "Writer", "File", "Path", "Paths", "Files",
+            "UUID", "Date", "LocalDate", "LocalDateTime", "Instant", "Duration"
+    );
+
     @Override
     public boolean supports(String fileName) {
         String normalized = fileName.replace('\\', '/').toLowerCase();
@@ -61,13 +71,19 @@ public class JavaCodeAnalyzer implements LanguageAnalyzer {
                 return false;
             }
         }
-        return !parts[parts.length - 1].endsWith("test.java");
+        String lastPart = parts[parts.length - 1];
+        if (lastPart.endsWith("test.java") || lastPart.endsWith("tests.java")
+                || lastPart.endsWith("testcase.java") || lastPart.endsWith("it.java")) {
+            return false;
+        }
+        return true;
     }
 
     @Override
     public void analyzeFile(Long repoId, Path file, Path root, AnalysisResult result) {
         JavaParser parser = new JavaParser();
         Map<String, CodeEntity> entityMap = new HashMap<>();
+        List<CodeRelationshipEntity> fileRelationships = new ArrayList<>();
         
         try {
             String relativePath = root.relativize(file).toString().replace("\\", "/");
@@ -104,25 +120,26 @@ public class JavaCodeAnalyzer implements LanguageAnalyzer {
 
             // Extract class/interface/enum declarations
             for (TypeDeclaration<?> type : cu.getTypes()) {
-                processType(repoId, relativePath, packageName, source, type, result, entityMap, importMap);
+                processType(repoId, relativePath, packageName, source, type, result, entityMap, importMap, fileRelationships);
             }
 
         } catch (IOException e) {
             log.warn("Error reading {}: {}", file, e.getMessage());
         }
 
-        buildRelationships(repoId, result, entityMap);
+        buildRelationships(repoId, result, fileRelationships, entityMap);
     }
 
 
     private void processType(Long repoId, String filePath, String packageName,
                              String fullSource, TypeDeclaration<?> type,
-                             AnalysisResult result, Map<String, CodeEntity> entityMap, Map<String, String> importMap) {
+                             AnalysisResult result, Map<String, CodeEntity> entityMap, Map<String, String> importMap,
+                             List<CodeRelationshipEntity> fileRelationships) {
 
         String name = type.getNameAsString();
         String qualifiedName = packageName.isEmpty() ? name : packageName + "." + name;
 
-        // Determine entity type from Spring annotations
+        // Determine entity type from Spring annotations and structure
         EntityType entityType = determineEntityType(type);
 
         // Collect annotation names
@@ -164,22 +181,38 @@ public class JavaCodeAnalyzer implements LanguageAnalyzer {
         if (type instanceof ClassOrInterfaceDeclaration classDecl) {
             // Track implements/extends
             classDecl.getExtendedTypes().forEach(ext -> {
+                String targetType = stripGenerics(ext.getNameAsString());
                 CodeRelationshipEntity rel = new CodeRelationshipEntity();
                 rel.setRepoId(repoId);
                 rel.setSourceName(qualifiedName);
-                rel.setTargetName(resolveTypeName(ext.getNameAsString(), packageName, importMap));
+                rel.setTargetName(resolveTypeName(targetType, packageName, importMap));
                 rel.setRelationType(RelationType.EXTENDS);
-                result.relationships.add(rel);
+                fileRelationships.add(rel);
             });
 
             classDecl.getImplementedTypes().forEach(impl -> {
+                String targetType = stripGenerics(impl.getNameAsString());
                 CodeRelationshipEntity rel = new CodeRelationshipEntity();
                 rel.setRepoId(repoId);
                 rel.setSourceName(qualifiedName);
-                rel.setTargetName(resolveTypeName(impl.getNameAsString(), packageName, importMap));
+                rel.setTargetName(resolveTypeName(targetType, packageName, importMap));
                 rel.setRelationType(RelationType.IMPLEMENTS);
-                result.relationships.add(rel);
+                fileRelationships.add(rel);
             });
+
+            // Map field names to their declared types
+            Map<String, String> fieldTypeMap = new HashMap<>();
+            for (FieldDeclaration field : classDecl.getFields()) {
+                field.getVariables().forEach(var -> {
+                    String rawFieldTypeName = var.getType().asString();
+                    fieldTypeMap.put(var.getNameAsString(), stripGenerics(rawFieldTypeName));
+                });
+            }
+            for (ConstructorDeclaration ctor : classDecl.getConstructors()) {
+                for (Parameter p : ctor.getParameters()) {
+                    fieldTypeMap.put(p.getNameAsString(), stripGenerics(p.getType().asString()));
+                }
+            }
 
             // Process methods
             for (MethodDeclaration method : classDecl.getMethods()) {
@@ -208,38 +241,68 @@ public class JavaCodeAnalyzer implements LanguageAnalyzer {
                 // Detect method calls for call graph
                 method.findAll(MethodCallExpr.class).forEach(call -> {
                     call.getScope().ifPresent(scope -> {
+                        String targetType = null;
                         if (scope instanceof NameExpr nameExpr) {
-                            // field.method() pattern — record as potential CALLS
+                            String id = nameExpr.getNameAsString();
+                            if (fieldTypeMap.containsKey(id)) {
+                                targetType = fieldTypeMap.get(id);
+                            } else if (!id.isEmpty() && Character.isUpperCase(id.charAt(0))) {
+                                targetType = id;
+                            }
+                        } else if (scope instanceof FieldAccessExpr fae) {
+                            String id = fae.getNameAsString();
+                            if (fieldTypeMap.containsKey(id)) {
+                                targetType = fieldTypeMap.get(id);
+                            }
+                        }
+
+                        if (targetType != null && !BUILT_IN_TYPES.contains(targetType)) {
                             CodeRelationshipEntity rel = new CodeRelationshipEntity();
                             rel.setRepoId(repoId);
                             rel.setSourceName(qualifiedName);
-                            rel.setTargetName(resolveTypeName(nameExpr.getNameAsString(), packageName, importMap));
+                            rel.setTargetName(resolveTypeName(targetType, packageName, importMap));
                             rel.setRelationType(RelationType.CALLS);
                             rel.setDescription(name + "." + method.getNameAsString() +
-                                    " calls " + nameExpr.getNameAsString() + "." + call.getNameAsString());
-                            result.relationships.add(rel);
+                                    " calls " + targetType + "." + call.getNameAsString());
+                            fileRelationships.add(rel);
                         }
                     });
                 });
             }
 
-            // Process fields for injection detection
+            // Process fields for injection detection (Autowired, Inject, Lombok, Constructor)
+            boolean hasLombokRequiredArgs = type.getAnnotations().stream()
+                    .anyMatch(a -> a.getNameAsString().equals("RequiredArgsConstructor"));
+            boolean hasLombokAllArgs = type.getAnnotations().stream()
+                    .anyMatch(a -> a.getNameAsString().equals("AllArgsConstructor"));
+            boolean isSpringComponent = entityType == EntityType.REST_CONTROLLER
+                    || entityType == EntityType.CONTROLLER
+                    || entityType == EntityType.SERVICE
+                    || entityType == EntityType.REPOSITORY
+                    || entityType == EntityType.COMPONENT
+                    || entityType == EntityType.CONFIGURATION;
+
             for (FieldDeclaration field : classDecl.getFields()) {
-                boolean isInjected = field.getAnnotations().stream()
+                boolean isExplicitlyInjected = field.getAnnotations().stream()
                         .anyMatch(a -> a.getNameAsString().equals("Autowired")
                                 || a.getNameAsString().equals("Inject"));
+                boolean isLombokInjected = isSpringComponent && ((hasLombokRequiredArgs && field.isFinal()) || hasLombokAllArgs);
 
                 field.getVariables().forEach(var -> {
                     String rawFieldTypeName = var.getType().asString();
                     String fieldTypeName = stripGenerics(rawFieldTypeName);
-                    if (isInjected || isConstructorInjected(classDecl, rawFieldTypeName) || isConstructorInjected(classDecl, fieldTypeName)) {
-                        CodeRelationshipEntity rel = new CodeRelationshipEntity();
-                        rel.setRepoId(repoId);
-                        rel.setSourceName(qualifiedName);
-                        rel.setTargetName(resolveTypeName(fieldTypeName, packageName, importMap));
-                        rel.setRelationType(RelationType.INJECTS);
-                        rel.setDescription(name + " injects " + fieldTypeName);
-                        result.relationships.add(rel);
+                    if (isExplicitlyInjected || isLombokInjected
+                            || isConstructorInjected(classDecl, rawFieldTypeName)
+                            || isConstructorInjected(classDecl, fieldTypeName)) {
+                        if (!BUILT_IN_TYPES.contains(fieldTypeName)) {
+                            CodeRelationshipEntity rel = new CodeRelationshipEntity();
+                            rel.setRepoId(repoId);
+                            rel.setSourceName(qualifiedName);
+                            rel.setTargetName(resolveTypeName(fieldTypeName, packageName, importMap));
+                            rel.setRelationType(RelationType.INJECTS);
+                            rel.setDescription(name + " injects " + fieldTypeName);
+                            fileRelationships.add(rel);
+                        }
                     }
                 });
             }
@@ -280,17 +343,16 @@ public class JavaCodeAnalyzer implements LanguageAnalyzer {
     /**
      * Deduplicate this file's relationships and opportunistically backfill the numeric
      * source/target entity IDs from the entities resolved within the same file.
-     *
-     * <p>IDs are best-effort only: an entity declared in another file is not in this map yet,
-     * so {@link com.sensei.service.ArchitectureService} resolves graph edges by name instead.
-     * Storing names as the durable key is what makes the graph order-independent.
      */
     private void buildRelationships(Long repoId, AnalysisResult result,
+                                    List<CodeRelationshipEntity> fileRelationships,
                                     Map<String, CodeEntity> entityMap) {
         Set<String> seen = new HashSet<>();
-        List<CodeRelationshipEntity> deduped = new ArrayList<>();
+        for (CodeRelationshipEntity existing : result.relationships) {
+            seen.add(existing.getSourceName() + "->" + existing.getTargetName() + ":" + existing.getRelationType());
+        }
 
-        for (CodeRelationshipEntity rel : result.relationships) {
+        for (CodeRelationshipEntity rel : fileRelationships) {
             String key = rel.getSourceName() + "->" + rel.getTargetName() + ":" + rel.getRelationType();
             if (!seen.add(key)) {
                 continue;
@@ -303,18 +365,11 @@ public class JavaCodeAnalyzer implements LanguageAnalyzer {
             if (target != null && target.getId() != null) {
                 rel.setTargetEntityId(target.getId());
             }
-            deduped.add(rel);
+            result.relationships.add(rel);
         }
-        result.relationships = deduped;
     }
 
     private EntityType determineEntityType(TypeDeclaration<?> type) {
-        if (!(type instanceof NodeWithAnnotations<?> annotated)) {
-            if (type instanceof EnumDeclaration) return EntityType.ENUM;
-            if (type instanceof RecordDeclaration) return EntityType.RECORD;
-            return EntityType.CLASS;
-        }
-
         Set<String> annNames = type.getAnnotations().stream()
                 .map(a -> a.getNameAsString())
                 .collect(Collectors.toSet());
@@ -332,9 +387,28 @@ public class JavaCodeAnalyzer implements LanguageAnalyzer {
         if (annNames.stream().anyMatch(SPRING_COMPONENT_ANNOTATIONS::contains))
             return EntityType.COMPONENT;
 
+        String name = type.getNameAsString();
+
         if (type instanceof ClassOrInterfaceDeclaration cid) {
-            if (cid.isInterface()) return EntityType.INTERFACE;
+            if (cid.isInterface()) {
+                boolean extendsRepo = cid.getExtendedTypes().stream().anyMatch(ext -> {
+                    String extName = ext.getNameAsString();
+                    return extName.endsWith("Repository") || extName.equals("JpaRepository") || extName.equals("CrudRepository");
+                });
+                if (extendsRepo || name.endsWith("Repository") || name.endsWith("Repo")) {
+                    return EntityType.REPOSITORY;
+                }
+                if (name.endsWith("Service")) {
+                    return EntityType.SERVICE;
+                }
+                return EntityType.INTERFACE;
+            }
         }
+
+        if (name.endsWith("Controller")) return EntityType.CONTROLLER;
+        if (name.endsWith("Service")) return EntityType.SERVICE;
+        if (name.endsWith("Repository") || name.endsWith("Repo")) return EntityType.REPOSITORY;
+
         if (type instanceof EnumDeclaration) return EntityType.ENUM;
         if (type instanceof RecordDeclaration) return EntityType.RECORD;
         if (type instanceof AnnotationDeclaration) return EntityType.ANNOTATION;

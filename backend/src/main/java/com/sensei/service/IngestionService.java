@@ -176,9 +176,9 @@ public class IngestionService {
                     if (!attrs.isRegularFile() || isSkippable(file, attrs)) {
                         return FileVisitResult.CONTINUE;
                     }
-                    String fileName = file.getFileName().toString();
+                    String relativePath = root.relativize(file).toString().replace('\\', '/');
                     for (LanguageAnalyzer analyzer : analyzers) {
-                        if (analyzer.supports(fileName)) {
+                        if (analyzer.supports(relativePath)) {
                             analyzer.analyzeFile(repoId, file, root, analysis);
                             fileCount[0]++;
                             break;

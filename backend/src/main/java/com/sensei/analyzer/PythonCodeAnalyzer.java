@@ -26,10 +26,10 @@ public class PythonCodeAnalyzer implements LanguageAnalyzer {
 
     private static final Logger log = LoggerFactory.getLogger(PythonCodeAnalyzer.class);
 
-    private static final Pattern CLASS_PATTERN = Pattern.compile("^\\s*class\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*[:\\(]", Pattern.MULTILINE);
+    private static final Pattern CLASS_PATTERN = Pattern.compile("^\\s*class\\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\\s*\\(([^)]*)\\))?\\s*:", Pattern.MULTILINE);
     private static final Pattern FUNC_PATTERN = Pattern.compile("^\\s*(?:async\\s+)?def\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(", Pattern.MULTILINE);
     private static final Pattern IMPORT_PATTERN = Pattern.compile("^\\s*import\\s+([a-zA-Z0-9_\\.]+)", Pattern.MULTILINE);
-    private static final Pattern FROM_IMPORT_PATTERN = Pattern.compile("^\\s*from\\s+([a-zA-Z0-9_\\.]+)\\s+import", Pattern.MULTILINE);
+    private static final Pattern FROM_IMPORT_PATTERN = Pattern.compile("^\\s*from\\s+([a-zA-Z0-9_\\.]+)\\s+import\\s+([^#\\n]+)", Pattern.MULTILINE);
 
     private String extractBaseName(String path) {
         if (path == null) return "";
@@ -43,7 +43,21 @@ public class PythonCodeAnalyzer implements LanguageAnalyzer {
 
     @Override
     public boolean supports(String fileName) {
-        return fileName.endsWith(".py");
+        String normalized = fileName.replace('\\', '/').toLowerCase();
+        if (!normalized.endsWith(".py")) {
+            return false;
+        }
+        String[] parts = normalized.split("/");
+        String lastPart = parts[parts.length - 1];
+        if (lastPart.startsWith("test_") || lastPart.endsWith("_test.py") || lastPart.equals("conftest.py")) {
+            return false;
+        }
+        for (int i = 0; i < parts.length - 1; i++) {
+            if (parts[i].equals("tests") || parts[i].equals("test")) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
@@ -81,47 +95,97 @@ public class PythonCodeAnalyzer implements LanguageAnalyzer {
             moduleEntity.setFilePath(relativePath);
             result.entities.add(moduleEntity);
 
+            // Import statements (import foo or import foo.bar)
             Matcher importMatcher = IMPORT_PATTERN.matcher(source);
             while (importMatcher.find()) {
-                String importedModule = importMatcher.group(1);
-                CodeRelationshipEntity rel = new CodeRelationshipEntity();
-                rel.setRepoId(repoId);
-                rel.setSourceName(baseSourceName);
-                rel.setTargetName(importedModule);
-                rel.setRelationType(RelationType.CALLS);
-                rel.setDescription(baseSourceName + " imports " + importedModule);
-                result.relationships.add(rel);
+                String rawMod = importMatcher.group(1);
+                String modBase = rawMod.contains(".") ? rawMod.substring(rawMod.lastIndexOf('.') + 1) : rawMod;
+                if (!modBase.isEmpty() && !modBase.equals(baseSourceName)) {
+                    CodeRelationshipEntity rel = new CodeRelationshipEntity();
+                    rel.setRepoId(repoId);
+                    rel.setSourceName(baseSourceName);
+                    rel.setTargetName(modBase);
+                    rel.setRelationType(RelationType.CALLS);
+                    rel.setDescription(baseSourceName + " imports " + modBase);
+                    result.relationships.add(rel);
+                }
             }
 
+            // From import statements (from foo.bar import Baz, Quux)
             Matcher fromImportMatcher = FROM_IMPORT_PATTERN.matcher(source);
             while (fromImportMatcher.find()) {
-                String importedModule = fromImportMatcher.group(1);
-                CodeRelationshipEntity rel = new CodeRelationshipEntity();
-                rel.setRepoId(repoId);
-                rel.setSourceName(baseSourceName);
-                rel.setTargetName(importedModule);
-                rel.setRelationType(RelationType.CALLS);
-                rel.setDescription(baseSourceName + " imports from " + importedModule);
-                result.relationships.add(rel);
+                String rawModule = fromImportMatcher.group(1).trim();
+                String rawItems = fromImportMatcher.group(2).trim();
+
+                String modBase = rawModule.contains(".") ? rawModule.substring(rawModule.lastIndexOf('.') + 1) : rawModule;
+                if (!modBase.isEmpty() && !modBase.equals(".") && !modBase.equals(baseSourceName)) {
+                    CodeRelationshipEntity rel = new CodeRelationshipEntity();
+                    rel.setRepoId(repoId);
+                    rel.setSourceName(baseSourceName);
+                    rel.setTargetName(modBase);
+                    rel.setRelationType(RelationType.CALLS);
+                    rel.setDescription(baseSourceName + " imports module " + modBase);
+                    result.relationships.add(rel);
+                }
+
+                String cleanItems = rawItems.replaceAll("[()]", "");
+                for (String item : cleanItems.split(",")) {
+                    String cleanItem = item.trim();
+                    if (cleanItem.contains(" as ")) {
+                        cleanItem = cleanItem.substring(0, cleanItem.indexOf(" as ")).trim();
+                    }
+                    if (!cleanItem.isEmpty() && Character.isUpperCase(cleanItem.charAt(0))) {
+                        CodeRelationshipEntity rel = new CodeRelationshipEntity();
+                        rel.setRepoId(repoId);
+                        rel.setSourceName(baseSourceName);
+                        rel.setTargetName(cleanItem);
+                        rel.setRelationType(RelationType.CALLS);
+                        rel.setDescription(baseSourceName + " imports " + cleanItem);
+                        result.relationships.add(rel);
+                    }
+                }
             }
 
+            // Class definitions and inheritance
             Matcher classMatcher = CLASS_PATTERN.matcher(source);
             while (classMatcher.find()) {
+                String className = classMatcher.group(1);
+                String baseClasses = classMatcher.group(2);
+
                 CodeEntity entity = new CodeEntity();
                 entity.setRepoId(repoId);
-                entity.setName(classMatcher.group(1));
-                entity.setQualifiedName(relativePath + ":" + classMatcher.group(1));
+                entity.setName(className);
+                entity.setQualifiedName(relativePath + ":" + className);
                 entity.setEntityType(EntityType.CLASS);
                 entity.setFilePath(relativePath);
                 result.entities.add(entity);
 
-                CodeRelationshipEntity rel = new CodeRelationshipEntity();
-                rel.setRepoId(repoId);
-                rel.setSourceName(baseSourceName);
-                rel.setTargetName(entity.getName());
-                rel.setRelationType(RelationType.CONTAINS);
-                rel.setDescription(baseSourceName + " contains " + entity.getName());
-                result.relationships.add(rel);
+                CodeRelationshipEntity containsRel = new CodeRelationshipEntity();
+                containsRel.setRepoId(repoId);
+                containsRel.setSourceName(baseSourceName);
+                containsRel.setTargetName(entity.getName());
+                containsRel.setRelationType(RelationType.CONTAINS);
+                containsRel.setDescription(baseSourceName + " contains " + entity.getName());
+                result.relationships.add(containsRel);
+
+                // Extract base classes / inheritance
+                if (baseClasses != null && !baseClasses.isBlank()) {
+                    for (String base : baseClasses.split(",")) {
+                        String cleanBase = base.trim();
+                        if (cleanBase.contains(".")) {
+                            cleanBase = cleanBase.substring(cleanBase.lastIndexOf('.') + 1);
+                        }
+                        if (!cleanBase.isEmpty() && !cleanBase.equals("object")) {
+                            CodeRelationshipEntity extRel = new CodeRelationshipEntity();
+                            extRel.setRepoId(repoId);
+                            extRel.setSourceName(className);
+                            extRel.setTargetName(cleanBase);
+                            extRel.setRelationType(RelationType.EXTENDS);
+                            extRel.setDescription(className + " extends " + cleanBase);
+                            result.relationships.add(extRel);
+                        }
+                    }
+                }
             }
 
             Matcher funcMatcher = FUNC_PATTERN.matcher(source);

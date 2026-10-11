@@ -32,8 +32,8 @@ public class TypeScriptCodeAnalyzer implements LanguageAnalyzer {
     // Regex to match "class MyClass" or "export class MyClass extends Base"
     private static final Pattern CLASS_PATTERN = Pattern.compile("(?:export\\s+)?class\\s+([a-zA-Z0-9_]+)");
 
-    // Regex to match ES6 imports: "import { X } from 'y'" or "import X from 'y'"
-    private static final Pattern IMPORT_PATTERN = Pattern.compile("import\\s+(.*?)\\s+from\\s+['\"]([^'\"]+)['\"]");
+    // Regex to match ES6 imports and re-exports: "import { X } from 'y'" or "export { X } from 'y'"
+    private static final Pattern IMPORT_PATTERN = Pattern.compile("(?:import|export)\\s+(.*?)\\s+from\\s+['\"]([^'\"]+)['\"]");
     
     // Regex to match CommonJS requires: "const x = require('y')"
     private static final Pattern REQUIRE_PATTERN = Pattern.compile("require\\(['\"]([^'\"]+)['\"]\\)");
@@ -66,8 +66,25 @@ public class TypeScriptCodeAnalyzer implements LanguageAnalyzer {
 
     @Override
     public boolean supports(String fileName) {
-        return fileName.endsWith(".ts") || fileName.endsWith(".tsx") || 
-               fileName.endsWith(".js") || fileName.endsWith(".jsx");
+        String normalized = fileName.replace('\\', '/').toLowerCase();
+        if (!normalized.endsWith(".ts") && !normalized.endsWith(".tsx") &&
+            !normalized.endsWith(".js") && !normalized.endsWith(".jsx")) {
+            return false;
+        }
+        if (normalized.endsWith(".test.ts") || normalized.endsWith(".spec.ts") ||
+            normalized.endsWith(".test.tsx") || normalized.endsWith(".spec.tsx") ||
+            normalized.endsWith(".test.js") || normalized.endsWith(".spec.js") ||
+            normalized.endsWith(".test.jsx") || normalized.endsWith(".spec.jsx") ||
+            normalized.endsWith(".d.ts")) {
+            return false;
+        }
+        String[] parts = normalized.split("/");
+        for (int i = 0; i < parts.length - 1; i++) {
+            if (parts[i].equals("test") || parts[i].equals("tests") || parts[i].equals("__tests__")) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
@@ -107,32 +124,53 @@ public class TypeScriptCodeAnalyzer implements LanguageAnalyzer {
             moduleEntity.setFilePath(relativePath);
             result.entities.add(moduleEntity);
 
-            // Extract imports (dependencies)
+            // Extract imports and dependencies
             Matcher importMatcher = IMPORT_PATTERN.matcher(source);
             while (importMatcher.find()) {
                 String importClause = importMatcher.group(1);
-                String[] importedNames = parseImportNames(importClause);
+                String fromPath = importMatcher.group(2);
                 
+                // If local import, always link the source module to the imported module
+                if (fromPath.startsWith(".") || fromPath.startsWith("/")) {
+                    String targetModule = extractBaseName(fromPath);
+                    if (!targetModule.isEmpty() && !targetModule.equals(baseSourceName)) {
+                        CodeRelationshipEntity rel = new CodeRelationshipEntity();
+                        rel.setRepoId(repoId);
+                        rel.setSourceName(baseSourceName);
+                        rel.setTargetName(targetModule);
+                        rel.setRelationType(RelationType.CALLS);
+                        rel.setDescription(baseSourceName + " imports module " + targetModule);
+                        result.relationships.add(rel);
+                    }
+                }
+
+                // Also record named imports (e.g. imported React components or services)
+                String[] importedNames = parseImportNames(importClause);
                 for (String importedName : importedNames) {
-                    CodeRelationshipEntity rel = new CodeRelationshipEntity();
-                    rel.setRepoId(repoId);
-                    rel.setSourceName(baseSourceName);
-                    rel.setTargetName(importedName);
-                    rel.setRelationType(RelationType.CALLS); 
-                    rel.setDescription(baseSourceName + " imports " + importedName);
-                    result.relationships.add(rel);
+                    if (Character.isUpperCase(importedName.charAt(0))) {
+                        CodeRelationshipEntity rel = new CodeRelationshipEntity();
+                        rel.setRepoId(repoId);
+                        rel.setSourceName(baseSourceName);
+                        rel.setTargetName(importedName);
+                        rel.setRelationType(RelationType.CALLS); 
+                        rel.setDescription(baseSourceName + " imports " + importedName);
+                        result.relationships.add(rel);
+                    }
                 }
             }
 
             Matcher requireMatcher = REQUIRE_PATTERN.matcher(source);
             while (requireMatcher.find()) {
-                CodeRelationshipEntity rel = new CodeRelationshipEntity();
-                rel.setRepoId(repoId);
-                rel.setSourceName(baseSourceName);
-                rel.setTargetName(extractBaseName(requireMatcher.group(1)));
-                rel.setRelationType(RelationType.CALLS);
-                rel.setDescription(baseSourceName + " requires " + requireMatcher.group(1));
-                result.relationships.add(rel);
+                String targetModule = extractBaseName(requireMatcher.group(1));
+                if (!targetModule.isEmpty() && !targetModule.equals(baseSourceName)) {
+                    CodeRelationshipEntity rel = new CodeRelationshipEntity();
+                    rel.setRepoId(repoId);
+                    rel.setSourceName(baseSourceName);
+                    rel.setTargetName(targetModule);
+                    rel.setRelationType(RelationType.CALLS);
+                    rel.setDescription(baseSourceName + " requires " + requireMatcher.group(1));
+                    result.relationships.add(rel);
+                }
             }
 
             // Extract Classes
@@ -155,18 +193,38 @@ public class TypeScriptCodeAnalyzer implements LanguageAnalyzer {
                 result.relationships.add(rel);
             }
 
-            // Extract Functions / Arrow Functions
+            // Extract Functions and React Components
             Matcher funcMatcher = FUNC_PATTERN.matcher(source);
             while (funcMatcher.find()) {
-                // Ignore likely keywords or false positives
                 String name = funcMatcher.group(1);
                 if (name.equals("if") || name.equals("switch") || name.equals("catch") || name.equals("return")) continue;
+
+                boolean isComponent = Character.isUpperCase(name.charAt(0)) && !name.equals("React");
+
+                // Register top-level React components as architectural entities
+                if (isComponent) {
+                    CodeEntity compEntity = new CodeEntity();
+                    compEntity.setRepoId(repoId);
+                    compEntity.setName(name);
+                    compEntity.setQualifiedName(relativePath + ":" + name);
+                    compEntity.setEntityType(EntityType.COMPONENT);
+                    compEntity.setFilePath(relativePath);
+                    result.entities.add(compEntity);
+
+                    CodeRelationshipEntity rel = new CodeRelationshipEntity();
+                    rel.setRepoId(repoId);
+                    rel.setSourceName(baseSourceName);
+                    rel.setTargetName(name);
+                    rel.setRelationType(RelationType.CONTAINS);
+                    rel.setDescription(baseSourceName + " contains " + name);
+                    result.relationships.add(rel);
+                }
 
                 CodeChunkEntity chunk = new CodeChunkEntity();
                 chunk.setRepoId(repoId);
                 chunk.setFilePath(relativePath);
                 chunk.setEntityName(name);
-                chunk.setChunkType(Character.isUpperCase(name.charAt(0)) ? "COMPONENT" : "METHOD");
+                chunk.setChunkType(isComponent ? "COMPONENT" : "METHOD");
                 chunk.setStartLine(1);
                 chunk.setEndLine(lines.length);
                 chunk.setContent("Function/Component: " + name);

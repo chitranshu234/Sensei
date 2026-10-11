@@ -43,6 +43,7 @@ public class ArchitectureService {
             EntityType.CONTROLLER,
             EntityType.SERVICE,
             EntityType.REPOSITORY,
+            EntityType.INTERFACE,
             EntityType.ENTITY,
             EntityType.CONFIGURATION,
             EntityType.COMPONENT
@@ -177,6 +178,7 @@ public class ArchitectureService {
 
         private final Map<String, CodeEntity> byExactName = new HashMap<>();
         private final Map<String, CodeEntity> bySimpleName = new HashMap<>();
+        private final Map<String, CodeEntity> byCaseInsensitiveName = new HashMap<>();
 
         private NameIndex() {}
 
@@ -186,11 +188,13 @@ public class ArchitectureService {
                 String qualified = entity.getQualifiedName();
                 if (qualified != null && !qualified.isBlank()) {
                     index.byExactName.merge(qualified, entity, NameIndex::preferShorterQualifiedName);
+                    index.byCaseInsensitiveName.merge(qualified.toLowerCase(), entity, NameIndex::preferShorterQualifiedName);
                 }
                 String name = entity.getName();
                 if (name != null && !name.isBlank()) {
                     index.byExactName.merge(name, entity, NameIndex::preferShorterQualifiedName);
                     index.bySimpleName.merge(name, entity, NameIndex::preferShorterQualifiedName);
+                    index.byCaseInsensitiveName.merge(name.toLowerCase(), entity, NameIndex::preferShorterQualifiedName);
                 }
             }
             return index;
@@ -219,13 +223,18 @@ public class ArchitectureService {
                 return exact;
             }
             int lastDot = name.lastIndexOf('.');
-            if (lastDot >= 0 && lastDot < name.length() - 1) {
-                CodeEntity simple = bySimpleName.get(name.substring(lastDot + 1));
-                if (simple != null) {
-                    return simple;
-                }
+            String simple = (lastDot >= 0 && lastDot < name.length() - 1) ? name.substring(lastDot + 1) : name;
+            CodeEntity simpleMatch = bySimpleName.get(simple);
+            if (simpleMatch != null) {
+                return simpleMatch;
             }
-            return null;
+            // Fallback 1: Case-insensitive match on simple name (e.g. "userRepository" -> "UserRepository")
+            CodeEntity ciSimple = byCaseInsensitiveName.get(simple.toLowerCase());
+            if (ciSimple != null) {
+                return ciSimple;
+            }
+            // Fallback 2: Case-insensitive match on full/qualified name
+            return byCaseInsensitiveName.get(name.toLowerCase());
         }
     }
 }
