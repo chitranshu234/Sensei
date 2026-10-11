@@ -2,7 +2,7 @@
 
 Sensei is an AI-assisted codebase intelligence platform for exploring unfamiliar public GitHub repositories. It clones a repository, extracts source-level structure, persists the resulting code model, renders architecture views, and supports source-grounded chat and onboarding guidance.
 
-> 🎬 **Demo Video**: [Watch the Sensei Walkthrough & Demo on Google Drive](https://drive.google.com/file/d/1aRHZq-z11LU4uVz8oHp3UTdkxg54sOjS/view?usp=sharing)
+> 🎬 **Demo Video**: [Watch the Sensei Demo](https://drive.google.com/file/d/1aRHZq-z11LU4uVz8oHp3UTdkxg54sOjS/view?usp=sharing)
 
 ---
 
